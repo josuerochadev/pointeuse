@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://josuerochadev.github.io/pointeuse/sitemap.xml
