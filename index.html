@@ -422,11 +422,11 @@ function render(){
     const badgeHTML=badges[d.status]||"";
     rows+=`<div class="row${isToday?" today":""}${isOff?" off":""}">
       <div class="day" onclick="cycleStatus(${i})">${DAYNAMES[i].slice(0,3)}${isUnclosed?`<span class="unclosed-dot"></span>`:""}<small>${dd.getDate()}/${pad(dd.getMonth()+1)}</small>${badgeHTML}</div>
-      <input type="time" value="${d.arrival}" onchange="setField(${i},'arrival',this.value)">
+      <input type="time" value="${d.arrival}" onblur="setField(${i},'arrival',this.value)">
       <div class="pause"><input type="number" min="0" max="180" value="${d.lunch}" oninput="setField(${i},'lunch',this.value)"></div>
       <div class="prev ${d.predicted==null?'empty':''}">${d.predicted!=null?toHHMM(d.predicted):"\u2014"}</div>
       <div class="realcell">
-        <input type="time" value="${d.actual}" onchange="setField(${i},'actualDeparture',this.value)">
+        <input type="time" value="${d.actual}" onblur="setField(${i},'actualDeparture',this.value)">
         ${d.settled?`<div class="ddelta ${d.dailyDelta>=0?'pos':'neg'}">${fmtDelta(d.dailyDelta)}</div>`:``}
       </div>
     </div>`;
@@ -480,7 +480,7 @@ function render(){
     <div class="date">${dateStr}</div>
     <div class="leaverow">
       <div><div class="lab">D\u00e9part pr\u00e9vu</div><div class="bigtime ${over?'over':''}">${heroLeave}</div></div>
-      <div class="quick"><label>Arriv\u00e9e</label><input type="time" value="${hd.arrival}" onchange="setField(${heroIdx},'arrival',this.value)"></div>
+      <div class="quick"><label>Arriv\u00e9e</label><input type="time" value="${hd.arrival}" onblur="setField(${heroIdx},'arrival',this.value)"></div>
     </div>
     <div class="timeline">
       <div class="bar"><div class="fill ${over?'over':''}" style="width:${fillPct}%"></div>${nowPct!=null?`<div class="now" style="left:${nowPct}%"></div>`:""}</div>
