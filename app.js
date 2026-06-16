@@ -72,7 +72,7 @@ function cycleStatus(i){
   const ns=next[cur]||"work";
   week[i].status=ns;
   if(ns!=="work"){delete week[i].arrival;delete week[i].lunch;delete week[i].actualDeparture;}
-  saveWeek();render();
+  saveWeek();syncPush();render();
 }
 
 /* ---------- french public holidays ---------- */
@@ -120,7 +120,7 @@ function prefillHolidays(year){
     localStorage.setItem(key,JSON.stringify(wData));
     count++;
   }
-  loadWeek();render();
+  loadWeek();render();syncPush();
   toast(count+" f\u00e9ri\u00e9(s) ajout\u00e9(s) pour "+year);
 }
 
@@ -410,7 +410,7 @@ function setField(i,k,v){
   if(!week[i])week[i]={};
   if(k==='lunch')v=v===""?0:Number(v);
   week[i][k]=v;
-  saveWeek();
+  saveWeek();syncPush();
   clearTimeout(_renderTimer);
   _renderTimer=setTimeout(()=>{
     const ae=document.activeElement;
@@ -421,15 +421,15 @@ function nav(d){mondayOffset+=d;loadWeek();render();}
 function goToday(){mondayOffset=0;loadWeek();render();}
 function goToWeekKey(year,wk){const m=isoWeekMonday(year,wk);mondayOffset=Math.round((m-getMonday(0))/(7*86400000));loadWeek();render();window.scrollTo({top:0,behavior:"smooth"});}
 function openHistory(){const h=document.getElementById("hist");if(h){h.open=true;h.scrollIntoView({behavior:"smooth",block:"center"});}}
-function clearWeek(){if(!confirm("Effacer toutes les saisies de cette semaine ?"))return;week={};saveWeek();render();toast("Semaine effac\u00e9e");}
+function clearWeek(){if(!confirm("Effacer toutes les saisies de cette semaine ?"))return;week={};saveWeek();syncPush();render();toast("Semaine effac\u00e9e");}
 function parseTarget(s){const m=s.match(/(\d+)\s*h\s*(\d+)?/i);if(m)return Number(m[1])*60+(m[2]?Number(m[2]):0);const n=Number(s);return isNaN(n)?settings.weeklyTarget:n*60;}
-function setTarget(v){settings.weeklyTarget=parseTarget(v);saveSettings();render();}
-function setDays(v){settings.days=Math.max(1,Math.min(7,Number(v)||5));saveSettings();render();}
-function setLunch(v){settings.lunch=Math.max(0,Number(v)||0);saveSettings();render();}
-function setArr(v){settings.arrival=v||"08:15";saveSettings();render();}
-function setIcsTitle(v){settings.icsTitle=v||DEFAULTS.icsTitle;saveSettings();}
-function setIcsLocation(v){settings.icsLocation=v||"";saveSettings();}
-function setIcsCal(v){settings.icsCalendar=v||"";saveSettings();}
+function setTarget(v){settings.weeklyTarget=parseTarget(v);saveSettings();syncPush();render();}
+function setDays(v){settings.days=Math.max(1,Math.min(7,Number(v)||5));saveSettings();syncPush();render();}
+function setLunch(v){settings.lunch=Math.max(0,Number(v)||0);saveSettings();syncPush();render();}
+function setArr(v){settings.arrival=v||"08:15";saveSettings();syncPush();render();}
+function setIcsTitle(v){settings.icsTitle=v||DEFAULTS.icsTitle;saveSettings();syncPush();}
+function setIcsLocation(v){settings.icsLocation=v||"";saveSettings();syncPush();}
+function setIcsCal(v){settings.icsCalendar=v||"";saveSettings();syncPush();}
 function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2200);}
 
 /* ---------- ICS ---------- */
@@ -464,7 +464,7 @@ function importBackup(file){
   if(!file)return;
   if(!confirm("Les donn\u00e9es actuelles seront remplac\u00e9es. Continuer ?"))return;
   const r=new FileReader();
-  r.onload=()=>{try{const o=JSON.parse(r.result);Object.keys(o).forEach(k=>{if(k.startsWith("pointeuse:"))localStorage.setItem(k,o[k]);});loadSettings();loadWeek();render();toast("Donn\u00e9es restaur\u00e9es");}catch(e){toast("Fichier invalide");}};
+  r.onload=()=>{try{const o=JSON.parse(r.result);Object.keys(o).forEach(k=>{if(k.startsWith("pointeuse:"))localStorage.setItem(k,o[k]);});loadSettings();loadWeek();render();syncPush();toast("Donn\u00e9es restaur\u00e9es");}catch(e){toast("Fichier invalide");}};
   r.readAsText(file);
 }
 
@@ -474,4 +474,4 @@ if ('serviceWorker' in navigator) {
 }
 
 /* ---------- init ---------- */
-(function(){loadSettings();loadWeek();render();})();
+(async function(){loadSettings();loadWeek();await syncPull();render();})();
