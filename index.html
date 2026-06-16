@@ -124,7 +124,7 @@
 
   .row .day{cursor:pointer;-webkit-user-select:none;user-select:none}
   .day-badge{font-size:10px;font-weight:500;letter-spacing:.04em;margin-top:1px;line-height:1}
-  .day-badge.leave{color:var(--leave)}.day-badge.holiday{color:var(--over)}
+  .day-badge.leave{color:var(--leave)}.day-badge.holiday{color:var(--over)}.day-badge.sick{color:#A78BFA}
   .row.off input{opacity:.25;pointer-events:none}
   .row.off .prev{opacity:.25}
 
@@ -205,8 +205,59 @@ function dayData(i){
 async function cycleStatus(i){
   if(!week[i])week[i]={};
   const cur=week[i].status||"work";
-  week[i].status=cur==="work"?"leave":cur==="leave"?"holiday":"work";
+  const next={work:"leave",leave:"holiday",holiday:"sick",sick:"work"};
+  week[i].status=next[cur]||"work";
   await saveWeek();render();
+}
+
+/* ---------- french public holidays ---------- */
+function easterMonday(year){
+  // Butcher's algorithm for Easter Sunday, then +1 for Monday
+  const a=year%19,b=Math.floor(year/100),c=year%100;
+  const d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25);
+  const g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30;
+  const i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7;
+  const m=Math.floor((a+11*h+22*l)/451);
+  const month=Math.floor((h+l-7*m+114)/31)-1;
+  const day=((h+l-7*m+114)%31)+1;
+  return new Date(year,month,day+1);
+}
+function frenchHolidays(year){
+  const em=easterMonday(year);
+  const asc=new Date(em);asc.setDate(asc.getDate()+38); // Ascension = Easter Monday + 38
+  const pent=new Date(em);pent.setDate(pent.getDate()+49); // Pentecost Monday = Easter Monday + 49
+  return[
+    new Date(year,0,1),   // Jour de l'an
+    em,                    // Lundi de Paques
+    new Date(year,4,1),   // Fete du Travail
+    new Date(year,4,8),   // Victoire 1945
+    asc,                   // Ascension
+    pent,                  // Lundi de Pentecote
+    new Date(year,6,14),  // Fete nationale
+    new Date(year,7,15),  // Assomption
+    new Date(year,10,1),  // Toussaint
+    new Date(year,10,11), // Armistice
+    new Date(year,11,25), // Noel
+  ];
+}
+async function prefillHolidays(year){
+  const holidays=frenchHolidays(year);
+  let count=0;
+  for(const h of holidays){
+    const dow=(h.getDay()+6)%7; // 0=mon..6=sun
+    if(dow>=settings.days)continue; // weekend or beyond work days
+    const{week:wk,year:y}=isoWeek(h);
+    const key=`pointeuse:week:${y}-W${pad(wk)}`;
+    let wData={};
+    try{const v=localStorage.getItem(key);if(v)wData=JSON.parse(v);}catch(e){}
+    if(!wData[dow])wData[dow]={};
+    if(wData[dow].status&&wData[dow].status!=="work")continue; // already marked
+    wData[dow].status="holiday";
+    localStorage.setItem(key,JSON.stringify(wData));
+    count++;
+  }
+  await loadWeek();render();
+  toast(count+" f\u00e9ri\u00e9(s) ajout\u00e9(s) pour "+year);
 }
 // pure aggregation over a raw week object (used for current week + history)
 function computeWeekObj(w){
@@ -282,11 +333,12 @@ function monthlyRecap(){
       const entry=w[d];if(!entry)continue;
       const date=new Date(mon);date.setDate(date.getDate()+d);
       const mk=date.getFullYear()+"-"+pad(date.getMonth()+1);
-      if(!months[mk])months[mk]={year:date.getFullYear(),month:date.getMonth(),worked:0,leave:0,holiday:0,realized:0,delta:0,settledCount:0};
+      if(!months[mk])months[mk]={year:date.getFullYear(),month:date.getMonth(),worked:0,leave:0,holiday:0,sick:0,realized:0,delta:0,settledCount:0};
       const mo=months[mk];
       const status=entry.status||"work";
       if(status==="leave"){mo.leave++;continue;}
       if(status==="holiday"){mo.holiday++;continue;}
+      if(status==="sick"){mo.sick++;continue;}
       const a=toMin(entry.arrival);if(a==null)continue;
       mo.worked++;
       const lunch=(entry.lunch===0||entry.lunch)?Number(entry.lunch):settings.lunch;
@@ -300,7 +352,7 @@ function monthlyRecap(){
 /* ---------- CSV export ---------- */
 function exportCSV(){
   const rows=["\uFEFFDate;Jour;Statut;Arriv\u00e9e;Pause (min);D\u00e9part pr\u00e9vu;D\u00e9part r\u00e9el;Travaill\u00e9;\u00c9cart"];
-  const statusLabels={work:"travaill\u00e9",leave:"cong\u00e9",holiday:"f\u00e9ri\u00e9"};
+  const statusLabels={work:"travaill\u00e9",leave:"cong\u00e9",holiday:"f\u00e9ri\u00e9",sick:"maladie"};
   const allWeeks=[];
   for(let i=0;i<localStorage.length;i++){
     const k=localStorage.key(i);if(!k||!k.startsWith("pointeuse:week:"))continue;
@@ -366,7 +418,8 @@ function render(){
     const isToday=i===ti;
     const isOff=d.status!=="work";
     const isUnclosed=d.status==="work"&&d.aMin!=null&&!d.actual&&dd<today;
-    const badgeHTML=d.status==="leave"?`<span class="day-badge leave">cong\u00e9</span>`:d.status==="holiday"?`<span class="day-badge holiday">f\u00e9ri\u00e9</span>`:"";
+    const badges={leave:`<span class="day-badge leave">cong\u00e9</span>`,holiday:`<span class="day-badge holiday">f\u00e9ri\u00e9</span>`,sick:`<span class="day-badge sick">maladie</span>`};
+    const badgeHTML=badges[d.status]||"";
     rows+=`<div class="row${isToday?" today":""}${isOff?" off":""}">
       <div class="day" onclick="cycleStatus(${i})">${DAYNAMES[i].slice(0,3)}${isUnclosed?`<span class="unclosed-dot"></span>`:""}<small>${dd.getDate()}/${pad(dd.getMonth()+1)}</small>${badgeHTML}</div>
       <input type="time" value="${d.arrival}" oninput="setField(${i},'arrival',this.value)">
@@ -480,6 +533,7 @@ function render(){
         if(m.worked)parts.push(m.worked+"j travaill\u00e9"+(m.worked>1?"s":""));
         if(m.leave)parts.push(m.leave+" cong\u00e9"+(m.leave>1?"s":""));
         if(m.holiday)parts.push(m.holiday+" f\u00e9ri\u00e9"+(m.holiday>1?"s":""));
+        if(m.sick)parts.push(m.sick+" maladie");
         const detail=parts.join(" \u00b7 ")+(m.settledCount?" \u00b7 "+fmtDur(m.realized):"");
         const dcls=m.delta>=0?"pos":"neg";
         html+=`<div class="mrow"><div class="mr-label">${MONTHNAMES[m.month]} ${m.year}<small>${detail}</small></div><div class="mr-solde ${dcls}">${m.settledCount?fmtDelta(m.delta):"\u2014"}</div></div>`;
@@ -498,6 +552,7 @@ function render(){
       <div class="f"><label>Pause par d\u00e9faut (min)</label><input type="number" min="0" max="180" value="${settings.lunch}" onchange="setLunch(this.value)"></div>
       <div class="f"><label>Arriv\u00e9e par d\u00e9faut</label><input type="time" value="${settings.arrival}" onchange="setArr(this.value)"></div>
       <div class="sethint">Cible quotidienne : <b>${fmtDur(dailyTarget())}</b> de travail effectif. Le solde ne compte que les jours avec un <b>d\u00e9part r\u00e9el</b> \u2014 les cong\u00e9s restent neutres.</div>
+      <div class="sethint" style="margin-top:8px"><button class="btn btn-ghost" style="flex:none;width:100%;margin-top:6px" onclick="prefillHolidays(${new Date().getFullYear()})">Charger les jours f\u00e9ri\u00e9s ${new Date().getFullYear()}</button></div>
     </div>
   </details>`;
 }
