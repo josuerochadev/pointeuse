@@ -34,6 +34,7 @@ La synchronisation entre appareils se fait via un Gist GitHub prive : il suffit 
 - Export CSV et ICS (calendrier)
 - Sauvegarde / restauration JSON
 - Synchronisation multi-appareils via GitHub Gist
+- Notification de mise a jour (bandeau "Recharger")
 - Fonctionne hors-ligne (PWA installable)
 
 ## Stack technique
@@ -42,7 +43,7 @@ La synchronisation entre appareils se fait via un Gist GitHub prive : il suffit 
 |-----------|--------|
 | Markup | HTML5 |
 | Style | CSS3 (custom properties, grid, flexbox) |
-| Logique | JavaScript vanilla (ES2020+) |
+| Logique | JavaScript vanilla (ES modules, ES2020+) |
 | Fonts | Fraunces (serif) + Inter (UI) via Google Fonts |
 | Sync | GitHub Gist API (fetch natif, zero dependance) |
 | Offline | Service Worker (network-first HTML/CSS/JS, cache-first assets) |
@@ -61,7 +62,13 @@ git clone https://github.com/josuerochadev/pointeuse.git
 cd pointeuse
 ```
 
-Ouvrir `index.html` dans un navigateur ou deployer sur un serveur statique.
+Servir avec un serveur statique local (requis pour les ES modules) :
+
+```bash
+npx serve .
+# ou
+python3 -m http.server
+```
 
 ## Architecture
 
@@ -69,9 +76,11 @@ Ouvrir `index.html` dans un navigateur ou deployer sur un serveur statique.
 pointeuse/
 ├── index.html          # Shell HTML
 ├── style.css           # Styles + accessibilite
-├── app.js              # Logique applicative
+├── compute.js          # Fonctions pures (temps, calculs, validation)
 ├── sync.js             # Sync multi-appareils (GitHub Gist)
+├── app.js              # State, rendu, evenements (module principal)
 ├── sw.js               # Service Worker
+├── tests.html          # Tests unitaires (ouvrir dans le navigateur)
 ├── manifest.json       # Manifeste PWA
 └── icons/
     ├── icon-192.png
@@ -79,6 +88,22 @@ pointeuse/
     ├── icon-maskable-512.png
     └── apple-touch-icon.png
 ```
+
+## Securite
+
+- Echappement HTML (`esc()`) sur toutes les valeurs utilisateur injectees dans le DOM
+- Validation stricte de la structure des fichiers de sauvegarde importes
+- Token GitHub stocke localement (jamais transmis a un tiers)
+
+## Tests
+
+Ouvrir `tests.html` dans le navigateur ou executer via Node :
+
+```bash
+node --input-type=module -e "import './compute.js'"
+```
+
+Les tests couvrent : conversions horaires, formatage, calcul des soldes, jours feries, validation des sauvegardes.
 
 ---
 
