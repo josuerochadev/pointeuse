@@ -21,6 +21,8 @@ Pointeuse est une application personnelle de suivi du temps de travail. Elle cal
 
 L'application fonctionne entierement dans le navigateur, sans serveur ni base de donnees. Les donnees sont stockees dans le `localStorage` et persistent entre les sessions. Le mode hors-ligne est assure par un Service Worker.
 
+La synchronisation entre appareils se fait via un Gist GitHub prive : il suffit d'un Personal Access Token (scope `gist`) pour synchroniser automatiquement ses donnees entre telephone et PC.
+
 ## Fonctionnalites
 
 - Saisie des heures d'arrivee et de depart par jour
@@ -31,6 +33,7 @@ L'application fonctionne entierement dans le navigateur, sans serveur ni base de
 - Historique par semaine et recapitulatif mensuel
 - Export CSV et ICS (calendrier)
 - Sauvegarde / restauration JSON
+- Synchronisation multi-appareils via GitHub Gist
 - Fonctionne hors-ligne (PWA installable)
 
 ## Stack technique
@@ -41,7 +44,8 @@ L'application fonctionne entierement dans le navigateur, sans serveur ni base de
 | Style | CSS3 (custom properties, grid, flexbox) |
 | Logique | JavaScript vanilla (ES2020+) |
 | Fonts | Fraunces (serif) + Inter (UI) via Google Fonts |
-| Offline | Service Worker (network-first HTML, cache-first assets) |
+| Sync | GitHub Gist API (fetch natif, zero dependance) |
+| Offline | Service Worker (network-first HTML/CSS/JS, cache-first assets) |
 | Hebergement | GitHub Pages |
 
 ## Demarrer
@@ -63,9 +67,10 @@ Ouvrir `index.html` dans un navigateur ou deployer sur un serveur statique.
 
 ```
 pointeuse/
-├── index.html          # Shell HTML (28 lignes)
+├── index.html          # Shell HTML
 ├── style.css           # Styles + accessibilite
 ├── app.js              # Logique applicative
+├── sync.js             # Sync multi-appareils (GitHub Gist)
 ├── sw.js               # Service Worker
 ├── manifest.json       # Manifeste PWA
 └── icons/
