@@ -1,10 +1,11 @@
-const CACHE_NAME = 'pointeuse-v14';
+const CACHE_NAME = 'pointeuse-v16';
 const ASSETS = [
   './',
   './index.html',
   './style.css',
-  './app.js',
+  './compute.js',
   './sync.js',
+  './app.js',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
@@ -12,15 +13,18 @@ const ASSETS = [
 ];
 
 // Files that should use network-first (get updates immediately)
-const NETWORK_FIRST = ['index.html', 'style.css', 'app.js', 'sync.js'];
+const NETWORK_FIRST = ['index.html', 'style.css', 'compute.js', 'sync.js', 'app.js'];
 
-// Install: cache core assets
+// Install: cache core assets, wait for activation signal
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(ASSETS))
-      .then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS))
   );
+});
+
+// Listen for skip-waiting message from the app
+self.addEventListener('message', e => {
+  if (e.data === 'SKIP_WAITING') self.skipWaiting();
 });
 
 // Activate: clean old caches
