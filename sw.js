@@ -1,9 +1,10 @@
-const CACHE_NAME = 'pointeuse-v13';
+const CACHE_NAME = 'pointeuse-v14';
 const ASSETS = [
   './',
   './index.html',
   './style.css',
   './app.js',
+  './sync.js',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
@@ -11,7 +12,7 @@ const ASSETS = [
 ];
 
 // Files that should use network-first (get updates immediately)
-const NETWORK_FIRST = ['index.html', 'style.css', 'app.js'];
+const NETWORK_FIRST = ['index.html', 'style.css', 'app.js', 'sync.js'];
 
 // Install: cache core assets
 self.addEventListener('install', e => {
