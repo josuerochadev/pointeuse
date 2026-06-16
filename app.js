@@ -270,7 +270,7 @@ function render(){
       <div class="pause"><input type="number" min="0" max="180" value="${d.lunch}" aria-label="Pause ${DAYNAMES[i]}" onblur="setField(${i},'lunch',this.value)"></div>
       <div class="prev ${d.predicted==null?'empty':''}">${d.predicted!=null?toHHMM(d.predicted):"\u2014"}</div>
       <div class="realcell">
-        <input type="time" value="${d.actual}" aria-label="D\u00e9part r\u00e9el ${DAYNAMES[i]}" onchange="setField(${i},'actualDeparture',this.value)">
+        <input type="time" value="${d.actual}" aria-label="D\u00e9part r\u00e9el ${DAYNAMES[i]}" onblur="setField(${i},'actualDeparture',this.value)">
         ${d.settled?`<div class="ddelta ${d.dailyDelta>=0?'pos':'neg'}">${fmtDelta(d.dailyDelta)}</div>`:``}
       </div>
     </div>`;
@@ -402,7 +402,18 @@ function render(){
 }
 
 /* ---------- events ---------- */
-function setField(i,k,v){if(!week[i])week[i]={};if(k==='lunch')v=v===""?0:Number(v);week[i][k]=v;saveWeek();render();}
+let _renderTimer=null;
+function setField(i,k,v){
+  if(!week[i])week[i]={};
+  if(k==='lunch')v=v===""?0:Number(v);
+  week[i][k]=v;
+  saveWeek();
+  clearTimeout(_renderTimer);
+  _renderTimer=setTimeout(()=>{
+    const ae=document.activeElement;
+    if(!ae||ae.tagName!=='INPUT'||!document.getElementById('app').contains(ae)){render();}
+  },150);
+}
 function nav(d){mondayOffset+=d;loadWeek();render();}
 function goToday(){mondayOffset=0;loadWeek();render();}
 function goToWeekKey(year,wk){const m=isoWeekMonday(year,wk);mondayOffset=Math.round((m-getMonday(0))/(7*86400000));loadWeek();render();window.scrollTo({top:0,behavior:"smooth"});}
