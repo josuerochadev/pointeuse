@@ -269,7 +269,7 @@ function render(){
     rows+=`<div class="row${isToday?" today":""}${isOff?" off":""}">
       <div class="day" onclick="cycleStatus(${i})" tabindex="0" role="button" aria-label="Changer statut ${DAYNAMES[i]}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();cycleStatus(${i})}">${DAYNAMES[i].slice(0,3)}${isUnclosed?`<span class="unclosed-dot"></span>`:""}<small>${dd.getDate()}/${pad(dd.getMonth()+1)}</small>${badgeHTML}</div>
       <input type="time" value="${d.arrival}" aria-label="Arriv\u00e9e ${DAYNAMES[i]}" onblur="setField(${i},'arrival',this.value)">
-      <div class="pause"><input type="number" min="0" max="180" value="${d.lunch}" aria-label="Pause ${DAYNAMES[i]}" oninput="setField(${i},'lunch',this.value)"></div>
+      <div class="pause"><input type="number" min="0" max="180" value="${d.lunch}" aria-label="Pause ${DAYNAMES[i]}" onblur="setField(${i},'lunch',this.value)"></div>
       <div class="prev ${d.predicted==null?'empty':''}">${d.predicted!=null?toHHMM(d.predicted):"\u2014"}</div>
       <div class="realcell">
         <input type="time" value="${d.actual}" aria-label="D\u00e9part r\u00e9el ${DAYNAMES[i]}" onchange="setField(${i},'actualDeparture',this.value)">
