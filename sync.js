@@ -25,8 +25,19 @@ function _allPointeuseKeys(){
 }
 
 async function syncConnect(token){
-  const check=await fetch(GIST_API,{method:"GET",headers:_headers(token)});
-  if(!check.ok)return false;
+  // Search for existing pointeuse-sync gist
+  const listRes=await fetch(GIST_API+"?per_page=100",{headers:_headers(token)});
+  if(!listRes.ok)return false;
+  const gists=await listRes.json();
+  const existing=gists.find(g=>g.description==="pointeuse-sync"&&g.files&&g.files["pointeuse-sync.json"]);
+  if(existing){
+    // Reuse existing gist — pull remote data then merge
+    _saveSyncConf({token,gistId:existing.id,lastSync:0});
+    await syncPull();
+    syncPush();
+    return true;
+  }
+  // No existing gist — create one
   const body={
     description:"pointeuse-sync",
     public:false,
