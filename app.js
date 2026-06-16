@@ -404,7 +404,19 @@ function render(){
 }
 
 /* ---------- events ---------- */
-async function setField(i,k,v){if(!week[i])week[i]={};if(k==='lunch')v=v===""?0:Number(v);week[i][k]=v;await saveWeek();render();}
+let _renderTimer=null;
+async function setField(i,k,v){
+  if(!week[i])week[i]={};
+  if(k==='lunch')v=v===""?0:Number(v);
+  week[i][k]=v;
+  await saveWeek();
+  // Debounce render + skip if an input still has focus (prevents iOS picker/keyboard issues)
+  clearTimeout(_renderTimer);
+  _renderTimer=setTimeout(()=>{
+    const ae=document.activeElement;
+    if(!ae||ae.tagName!=='INPUT'||!document.getElementById('app').contains(ae)){render();}
+  },150);
+}
 function nav(d){mondayOffset+=d;loadWeek().then(render);}
 function goToday(){mondayOffset=0;loadWeek().then(render);}
 function goToWeekKey(year,wk){const m=isoWeekMonday(year,wk);mondayOffset=Math.round((m-getMonday(0))/(7*86400000));loadWeek().then(()=>{render();window.scrollTo({top:0,behavior:"smooth"});});}

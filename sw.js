@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pointeuse-v8';
+const CACHE_NAME = 'pointeuse-v9';
 const ASSETS = [
   './',
   './index.html',
