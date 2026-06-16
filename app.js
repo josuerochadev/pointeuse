@@ -400,6 +400,17 @@ function render(){
       <div class="f" style="grid-column:1/-1"><label>Lieu calendrier</label><input type="text" value="${(settings.icsLocation||"").replace(/\\\\n/g,", ")}" placeholder="Adresse" onblur="setIcsLocation(this.value.replace(/, /g,'\\\\n'))"></div>
       <div class="f" style="grid-column:1/-1"><label>Calendrier cible</label><input type="text" value="${settings.icsCalendar||""}" placeholder="Professionnel" onblur="setIcsCal(this.value)"></div>
       <div class="sethint" style="margin-top:8px"><button class="btn btn-ghost" style="flex:none;width:100%;margin-top:6px" onclick="prefillHolidays(${new Date().getFullYear()})">Charger les jours f\u00e9ri\u00e9s ${new Date().getFullYear()}</button></div>
+      <div class="sync-section">
+        <label style="display:block;margin-bottom:8px">SYNCHRONISATION</label>
+        ${(()=>{
+          const st=syncStatus();
+          if(st.connected){
+            const d=st.lastSync?new Date(st.lastSync).toLocaleString("fr-FR"):"jamais";
+            return`<div class="sync-row"><div><div class="sync-badge">Synchronis\u00e9</div><small>Dernier sync : ${d}</small></div><button class="btn btn-ghost" style="flex:none;padding:8px 14px" onclick="syncDisconnect();render()">D\u00e9connecter</button></div>`;
+          }
+          return`<div class="sync-connect"><input type="password" id="sync-token" placeholder="Token GitHub (scope gist)" aria-label="Token GitHub"><button class="btn btn-primary" style="flex:none;padding:8px 14px" onclick="handleSyncConnect()">Connecter</button></div><div class="sethint" style="margin-top:6px">Cr\u00e9er un token sur GitHub \u2192 Settings \u2192 Developer settings \u2192 Personal access tokens. Scope : <b>gist</b> uniquement.</div>`;
+        })()}
+      </div>
     </div>
   </details>`;
 }
@@ -430,6 +441,13 @@ function setArr(v){settings.arrival=v||"08:15";saveSettings();syncPush();render(
 function setIcsTitle(v){settings.icsTitle=v||DEFAULTS.icsTitle;saveSettings();syncPush();}
 function setIcsLocation(v){settings.icsLocation=v||"";saveSettings();syncPush();}
 function setIcsCal(v){settings.icsCalendar=v||"";saveSettings();syncPush();}
+async function handleSyncConnect(){
+  const input=document.getElementById("sync-token");
+  if(!input||!input.value.trim()){toast("Token requis");return;}
+  const ok=await syncConnect(input.value.trim());
+  if(ok){toast("Synchronisation activ\u00e9e");render();}
+  else{toast("Token invalide");}
+}
 function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2200);}
 
 /* ---------- ICS ---------- */
