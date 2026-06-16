@@ -20,10 +20,28 @@ function todayIndex(off){if(off!==0)return -1;return (new Date().getDay()+6)%7;}
 function dailyTarget(){return Math.round(settings.weeklyTarget/settings.days);}
 
 /* ---------- storage ---------- */
-async function loadSettings(){try{const v=localStorage.getItem(STORE_SETTINGS);if(v)settings={...DEFAULTS,...JSON.parse(v)};}catch(e){settings={...DEFAULTS};}}
-async function saveSettings(){try{localStorage.setItem(STORE_SETTINGS,JSON.stringify(settings));}catch(e){}}
-async function loadWeek(){week={};try{const v=localStorage.getItem(weekKey(mondayOffset));if(v)week=JSON.parse(v);}catch(e){week={};}}
-async function saveWeek(){try{localStorage.setItem(weekKey(mondayOffset),JSON.stringify(week));}catch(e){}}
+function loadSettings(){try{const v=localStorage.getItem(STORE_SETTINGS);if(v)settings={...DEFAULTS,...JSON.parse(v)};}catch(e){settings={...DEFAULTS};}}
+function saveSettings(){try{localStorage.setItem(STORE_SETTINGS,JSON.stringify(settings));}catch(e){}}
+function loadWeek(){week={};try{const v=localStorage.getItem(weekKey(mondayOffset));if(v)week=JSON.parse(v);}catch(e){week={};}}
+function saveWeek(){try{localStorage.setItem(weekKey(mondayOffset),JSON.stringify(week));}catch(e){}}
+
+/* ---------- localStorage week iterator ---------- */
+function forEachWeek(cb){
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);if(!k||!k.startsWith("pointeuse:week:"))continue;
+    const m=k.match(/(\d{4})-W(\d{2})/);if(!m)continue;
+    let w;try{w=JSON.parse(localStorage.getItem(k));}catch(e){continue;}
+    cb({year:+m[1],wk:+m[2],data:w,monday:isoWeekMonday(+m[1],+m[2])});
+  }
+}
+
+/* ---------- download helper ---------- */
+function downloadBlob(blob,filename){
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");a.href=url;a.download=filename;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
 
 /* ---------- computation ---------- */
 function dayData(i){
@@ -47,14 +65,14 @@ function dayData(i){
   }
   return{arrival,lunch:Number(lunch),actual,aMin,predicted,worked,settled,dailyDelta,status};
 }
-async function cycleStatus(i){
+function cycleStatus(i){
   if(!week[i])week[i]={};
   const cur=week[i].status||"work";
   const next={work:"leave",leave:"holiday",holiday:"sick",sick:"work"};
   const ns=next[cur]||"work";
   week[i].status=ns;
   if(ns!=="work"){delete week[i].arrival;delete week[i].lunch;delete week[i].actualDeparture;}
-  await saveWeek();render();
+  saveWeek();render();
 }
 
 /* ---------- french public holidays ---------- */
@@ -86,7 +104,7 @@ function frenchHolidays(year){
     new Date(year,11,25),
   ];
 }
-async function prefillHolidays(year){
+function prefillHolidays(year){
   const holidays=frenchHolidays(year);
   let count=0;
   for(const h of holidays){
@@ -102,9 +120,10 @@ async function prefillHolidays(year){
     localStorage.setItem(key,JSON.stringify(wData));
     count++;
   }
-  await loadWeek();render();
+  loadWeek();render();
   toast(count+" f\u00e9ri\u00e9(s) ajout\u00e9(s) pour "+year);
 }
+
 // pure aggregation over a raw week object (used for current week + history)
 function computeWeekObj(w){
   let realized=0,delta=0,settledCount=0,projected=0,anyCount=0;
@@ -122,21 +141,17 @@ function computeWeekObj(w){
 }
 function cumulativeBalance(){
   let total=0;
-  for(let i=0;i<localStorage.length;i++){
-    const k=localStorage.key(i);if(!k||!k.startsWith("pointeuse:week:"))continue;
-    try{total+=computeWeekObj(JSON.parse(localStorage.getItem(k))).settledDelta;}catch(e){}
-  }
+  forEachWeek(({data})=>{
+    try{total+=computeWeekObj(data).settledDelta;}catch(e){}
+  });
   return total;
 }
 function historyWeeks(){
   const arr=[];
-  for(let i=0;i<localStorage.length;i++){
-    const k=localStorage.key(i);if(!k||!k.startsWith("pointeuse:week:"))continue;
-    const m=k.match(/(\d{4})-W(\d{2})/);if(!m)continue;
-    let w;try{w=JSON.parse(localStorage.getItem(k));}catch(e){continue;}
-    const c=computeWeekObj(w);if(c.anyCount===0)continue;
-    arr.push({year:+m[1],wk:+m[2],monday:isoWeekMonday(+m[1],+m[2]),...c});
-  }
+  forEachWeek(({year,wk,data,monday})=>{
+    const c=computeWeekObj(data);if(c.anyCount===0)return;
+    arr.push({year,wk,monday,...c});
+  });
   arr.sort((a,b)=>b.monday-a.monday);
   return arr;
 }
@@ -146,22 +161,18 @@ function unclosedPastDays(){
   const today=new Date();today.setHours(0,0,0,0);
   const thisMonday=getMonday(0);
   const results=[];
-  for(let i=0;i<localStorage.length;i++){
-    const k=localStorage.key(i);if(!k||!k.startsWith("pointeuse:week:"))continue;
-    const m=k.match(/(\d{4})-W(\d{2})/);if(!m)continue;
-    let w;try{w=JSON.parse(localStorage.getItem(k));}catch(e){continue;}
-    const mon=isoWeekMonday(+m[1],+m[2]);
+  forEachWeek(({year,wk,data,monday:mon})=>{
     const isPastWeek=mon<thisMonday;
     for(let d=0;d<7;d++){
-      const entry=w[d];if(!entry)continue;
+      const entry=data[d];if(!entry)continue;
       const status=entry.status||"work";
       if(status!=="work")continue;
       if(!entry.arrival||entry.actualDeparture)continue;
       const date=new Date(mon);date.setDate(date.getDate()+d);date.setHours(0,0,0,0);
       if(date>=today)continue;
-      results.push({year:+m[1],wk:+m[2],dayIdx:d,date,isPastWeek});
+      results.push({year,wk,dayIdx:d,date,isPastWeek});
     }
-  }
+  });
   results.sort((a,b)=>a.date-b.date);
   return results;
 }
@@ -170,28 +181,24 @@ function unclosedPastDays(){
 const MONTHNAMES=["janvier","f\u00e9vrier","mars","avril","mai","juin","juillet","ao\u00fbt","septembre","octobre","novembre","d\u00e9cembre"];
 function monthlyRecap(){
   const months={};
-  for(let i=0;i<localStorage.length;i++){
-    const k=localStorage.key(i);if(!k||!k.startsWith("pointeuse:week:"))continue;
-    const m=k.match(/(\d{4})-W(\d{2})/);if(!m)continue;
-    let w;try{w=JSON.parse(localStorage.getItem(k));}catch(e){continue;}
-    const mon=isoWeekMonday(+m[1],+m[2]);
+  forEachWeek(({data,monday:mon})=>{
     for(let d=0;d<7;d++){
-      const entry=w[d];if(!entry)continue;
+      const entry=data[d];if(!entry)continue;
       const date=new Date(mon);date.setDate(date.getDate()+d);
       const mk=date.getFullYear()+"-"+pad(date.getMonth()+1);
       if(!months[mk])months[mk]={year:date.getFullYear(),month:date.getMonth(),worked:0,leave:0,holiday:0,sick:0,realized:0,delta:0,settledCount:0};
       const mo=months[mk];
       const status=entry.status||"work";
-      if(status==="leave"){mo.leave++;continue;}
-      if(status==="holiday"){mo.holiday++;continue;}
-      if(status==="sick"){mo.sick++;continue;}
-      const a=toMin(entry.arrival);if(a==null)continue;
+      if(status==="leave"){mo.leave++;return;}
+      if(status==="holiday"){mo.holiday++;return;}
+      if(status==="sick"){mo.sick++;return;}
+      const a=toMin(entry.arrival);if(a==null)return;
       mo.worked++;
       const lunch=(entry.lunch===0||entry.lunch)?Number(entry.lunch):settings.lunch;
       const dep=toMin(entry.actualDeparture);
       if(dep!=null){const wk=dep-a-lunch;mo.realized+=wk;mo.delta+=wk-dailyTarget();mo.settledCount++;}
     }
-  }
+  });
   return Object.values(months).sort((a,b)=>(b.year-a.year)||b.month-a.month);
 }
 
@@ -200,12 +207,7 @@ function exportCSV(){
   const rows=["\uFEFFDate;Jour;Statut;Arriv\u00e9e;Pause (min);D\u00e9part pr\u00e9vu;D\u00e9part r\u00e9el;Travaill\u00e9;\u00c9cart"];
   const statusLabels={work:"travaill\u00e9",leave:"cong\u00e9",holiday:"f\u00e9ri\u00e9",sick:"maladie"};
   const allWeeks=[];
-  for(let i=0;i<localStorage.length;i++){
-    const k=localStorage.key(i);if(!k||!k.startsWith("pointeuse:week:"))continue;
-    const m=k.match(/(\d{4})-W(\d{2})/);if(!m)continue;
-    let w;try{w=JSON.parse(localStorage.getItem(k));}catch(e){continue;}
-    allWeeks.push({year:+m[1],wk:+m[2],data:w});
-  }
+  forEachWeek(({year,wk,data})=>{allWeeks.push({year,wk,data});});
   allWeeks.sort((a,b)=>{const ma=isoWeekMonday(a.year,a.wk),mb=isoWeekMonday(b.year,b.wk);return ma-mb;});
   for(const wk of allWeeks){
     const mon=isoWeekMonday(wk.year,wk.wk);
@@ -224,10 +226,7 @@ function exportCSV(){
       rows.push(`${ds};${DAYNAMES[d]};${statusLabels[status]};${toHHMM(a)};${lunch};${toHHMM(predicted)};${dep!=null?toHHMM(dep):""};${worked!=null?fmtDur(worked):""};${delta!=null?fmtDelta(delta):""}`);
     }
   }
-  const blob=new Blob([rows.join("\r\n")],{type:"text/csv;charset=utf-8"});
-  const a=document.createElement("a");a.href=URL.createObjectURL(blob);
-  a.download="pointeuse-export-"+new Date().toISOString().slice(0,10)+".csv";
-  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  downloadBlob(new Blob([rows.join("\r\n")],{type:"text/csv;charset=utf-8"}),"pointeuse-export-"+new Date().toISOString().slice(0,10)+".csv");
   toast("CSV export\u00e9");
 }
 
@@ -252,7 +251,6 @@ function render(){
   }
   const heroLeave=hd.predicted!=null?toHHMM(hd.predicted):"\u2013\u2013:\u2013\u2013";
 
-  // unclosed days in current view (for inline dots)
   const today=new Date();today.setHours(0,0,0,0);
   const viewMonday=getMonday(mondayOffset);
 
@@ -404,29 +402,17 @@ function render(){
 }
 
 /* ---------- events ---------- */
-let _renderTimer=null;
-async function setField(i,k,v){
-  if(!week[i])week[i]={};
-  if(k==='lunch')v=v===""?0:Number(v);
-  week[i][k]=v;
-  await saveWeek();
-  // Debounce render + skip if an input still has focus (prevents iOS picker/keyboard issues)
-  clearTimeout(_renderTimer);
-  _renderTimer=setTimeout(()=>{
-    const ae=document.activeElement;
-    if(!ae||ae.tagName!=='INPUT'||!document.getElementById('app').contains(ae)){render();}
-  },150);
-}
-function nav(d){mondayOffset+=d;loadWeek().then(render);}
-function goToday(){mondayOffset=0;loadWeek().then(render);}
-function goToWeekKey(year,wk){const m=isoWeekMonday(year,wk);mondayOffset=Math.round((m-getMonday(0))/(7*86400000));loadWeek().then(()=>{render();window.scrollTo({top:0,behavior:"smooth"});});}
+function setField(i,k,v){if(!week[i])week[i]={};if(k==='lunch')v=v===""?0:Number(v);week[i][k]=v;saveWeek();render();}
+function nav(d){mondayOffset+=d;loadWeek();render();}
+function goToday(){mondayOffset=0;loadWeek();render();}
+function goToWeekKey(year,wk){const m=isoWeekMonday(year,wk);mondayOffset=Math.round((m-getMonday(0))/(7*86400000));loadWeek();render();window.scrollTo({top:0,behavior:"smooth"});}
 function openHistory(){const h=document.getElementById("hist");if(h){h.open=true;h.scrollIntoView({behavior:"smooth",block:"center"});}}
-async function clearWeek(){if(!confirm("Effacer toutes les saisies de cette semaine ?"))return;week={};await saveWeek();render();toast("Semaine effac\u00e9e");}
+function clearWeek(){if(!confirm("Effacer toutes les saisies de cette semaine ?"))return;week={};saveWeek();render();toast("Semaine effac\u00e9e");}
 function parseTarget(s){const m=s.match(/(\d+)\s*h\s*(\d+)?/i);if(m)return Number(m[1])*60+(m[2]?Number(m[2]):0);const n=Number(s);return isNaN(n)?settings.weeklyTarget:n*60;}
-async function setTarget(v){settings.weeklyTarget=parseTarget(v);await saveSettings();render();}
-async function setDays(v){settings.days=Math.max(1,Math.min(7,Number(v)||5));await saveSettings();render();}
-async function setLunch(v){settings.lunch=Math.max(0,Number(v)||0);await saveSettings();render();}
-async function setArr(v){settings.arrival=v||"08:15";await saveSettings();render();}
+function setTarget(v){settings.weeklyTarget=parseTarget(v);saveSettings();render();}
+function setDays(v){settings.days=Math.max(1,Math.min(7,Number(v)||5));saveSettings();render();}
+function setLunch(v){settings.lunch=Math.max(0,Number(v)||0);saveSettings();render();}
+function setArr(v){settings.arrival=v||"08:15";saveSettings();render();}
 function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2200);}
 
 /* ---------- ICS ---------- */
@@ -435,6 +421,7 @@ function exportICS(){
   for(let i=0;i<settings.days;i++){
     const d=dayData(i);if(d.aMin==null)continue;
     const dep=toMin(d.actual)!=null?toMin(d.actual):d.predicted;
+    if(dep==null)continue;
     const date=new Date(monday);date.setDate(date.getDate()+i);
     const y=date.getFullYear(),mo=pad(date.getMonth()+1),da=pad(date.getDate());
     const st=`${y}${mo}${da}T${pad(Math.floor(d.aMin/60))}${pad(d.aMin%60)}00`;
@@ -443,21 +430,22 @@ function exportICS(){
   }
   if(!count){toast("Aucune arriv\u00e9e \u00e0 exporter");return;}
   const ics=`BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Pointeuse//FR\r\nCALSCALE:GREGORIAN\r\n${ev}END:VCALENDAR\r\n`;
-  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([ics],{type:"text/calendar"}));
-  const{week:wn,year}=isoWeek(monday);a.download=`travail-${year}-S${pad(wn)}.ics`;
-  document.body.appendChild(a);a.click();document.body.removeChild(a);toast(`${count} journ\u00e9e(s) export\u00e9e(s)`);
+  const{week:wn,year}=isoWeek(monday);
+  downloadBlob(new Blob([ics],{type:"text/calendar"}),`travail-${year}-S${pad(wn)}.ics`);
+  toast(`${count} journ\u00e9e(s) export\u00e9e(s)`);
 }
 
 /* ---------- backup ---------- */
 function exportBackup(){
   const o={};for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith("pointeuse:"))o[k]=localStorage.getItem(k);}
-  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(o,null,2)],{type:"application/json"}));
-  a.download="pointeuse-sauvegarde-"+new Date().toISOString().slice(0,10)+".json";
-  document.body.appendChild(a);a.click();document.body.removeChild(a);toast("Sauvegarde t\u00e9l\u00e9charg\u00e9e");
+  downloadBlob(new Blob([JSON.stringify(o,null,2)],{type:"application/json"}),"pointeuse-sauvegarde-"+new Date().toISOString().slice(0,10)+".json");
+  toast("Sauvegarde t\u00e9l\u00e9charg\u00e9e");
 }
 function importBackup(file){
-  if(!file)return;const r=new FileReader();
-  r.onload=async()=>{try{const o=JSON.parse(r.result);Object.keys(o).forEach(k=>{if(k.startsWith("pointeuse:"))localStorage.setItem(k,o[k]);});await loadSettings();await loadWeek();render();toast("Donn\u00e9es restaur\u00e9es");}catch(e){toast("Fichier invalide");}};
+  if(!file)return;
+  if(!confirm("Les donn\u00e9es actuelles seront remplac\u00e9es. Continuer ?"))return;
+  const r=new FileReader();
+  r.onload=()=>{try{const o=JSON.parse(r.result);Object.keys(o).forEach(k=>{if(k.startsWith("pointeuse:"))localStorage.setItem(k,o[k]);});loadSettings();loadWeek();render();toast("Donn\u00e9es restaur\u00e9es");}catch(e){toast("Fichier invalide");}};
   r.readAsText(file);
 }
 
@@ -467,4 +455,4 @@ if ('serviceWorker' in navigator) {
 }
 
 /* ---------- init ---------- */
-(async function(){await loadSettings();await loadWeek();render();})();
+(function(){loadSettings();loadWeek();render();})();
