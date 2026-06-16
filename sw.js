@@ -1,7 +1,9 @@
-const CACHE_NAME = 'pointeuse-v5';
+const CACHE_NAME = 'pointeuse-v6';
 const ASSETS = [
   './',
   './index.html',
+  './style.css',
+  './app.js',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
