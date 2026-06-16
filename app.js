@@ -1,5 +1,5 @@
 const STORE_SETTINGS="pointeuse:settings";
-const DEFAULTS={weeklyTarget:2340,days:5,lunch:45,arrival:"08:15"};
+const DEFAULTS={weeklyTarget:2340,days:5,lunch:45,arrival:"08:15",icsTitle:"Travail \u2014 Euro-Information",icsLocation:"Wacken, Strasbourg\\n17 Boulevard de Dresde\\n67000 Strasbourg\\nFrance",icsCalendar:"Professionnel"};
 const DAYNAMES=["lundi","mardi","mercredi","jeudi","vendredi","samedi","dimanche"];
 
 let settings={...DEFAULTS};
@@ -396,6 +396,9 @@ function render(){
       <div class="f"><label>Pause par d\u00e9faut (min)</label><input type="number" min="0" max="180" value="${settings.lunch}" aria-label="Pause par d\u00e9faut en minutes" onchange="setLunch(this.value)"></div>
       <div class="f"><label>Arriv\u00e9e par d\u00e9faut</label><input type="time" value="${settings.arrival}" aria-label="Arriv\u00e9e par d\u00e9faut" onchange="setArr(this.value)"></div>
       <div class="sethint">Cible quotidienne : <b>${fmtDur(dailyTarget())}</b> de travail effectif. Le solde ne compte que les jours avec un <b>d\u00e9part r\u00e9el</b> \u2014 les cong\u00e9s restent neutres.</div>
+      <div class="f" style="grid-column:1/-1"><label>Titre calendrier</label><input type="text" value="${settings.icsTitle||""}" placeholder="Travail" onblur="setIcsTitle(this.value)"></div>
+      <div class="f" style="grid-column:1/-1"><label>Lieu calendrier</label><input type="text" value="${(settings.icsLocation||"").replace(/\\\\n/g,", ")}" placeholder="Adresse" onblur="setIcsLocation(this.value.replace(/, /g,'\\\\n'))"></div>
+      <div class="f" style="grid-column:1/-1"><label>Calendrier cible</label><input type="text" value="${settings.icsCalendar||""}" placeholder="Professionnel" onblur="setIcsCal(this.value)"></div>
       <div class="sethint" style="margin-top:8px"><button class="btn btn-ghost" style="flex:none;width:100%;margin-top:6px" onclick="prefillHolidays(${new Date().getFullYear()})">Charger les jours f\u00e9ri\u00e9s ${new Date().getFullYear()}</button></div>
     </div>
   </details>`;
@@ -424,6 +427,9 @@ function setTarget(v){settings.weeklyTarget=parseTarget(v);saveSettings();render
 function setDays(v){settings.days=Math.max(1,Math.min(7,Number(v)||5));saveSettings();render();}
 function setLunch(v){settings.lunch=Math.max(0,Number(v)||0);saveSettings();render();}
 function setArr(v){settings.arrival=v||"08:15";saveSettings();render();}
+function setIcsTitle(v){settings.icsTitle=v||DEFAULTS.icsTitle;saveSettings();}
+function setIcsLocation(v){settings.icsLocation=v||"";saveSettings();}
+function setIcsCal(v){settings.icsCalendar=v||"";saveSettings();}
 function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2200);}
 
 /* ---------- ICS ---------- */
@@ -437,10 +443,12 @@ function exportICS(){
     const y=date.getFullYear(),mo=pad(date.getMonth()+1),da=pad(date.getDate());
     const st=`${y}${mo}${da}T${pad(Math.floor(d.aMin/60))}${pad(d.aMin%60)}00`;
     const en=`${y}${mo}${da}T${pad(Math.floor(dep/60))}${pad(dep%60)}00`;
-    ev+=`BEGIN:VEVENT\r\nUID:${y}${mo}${da}-pointeuse@josuerocha.dev\r\nDTSTART:${st}\r\nDTEND:${en}\r\nSUMMARY:Travail\r\nDESCRIPTION:Pause ${d.lunch} min \u00b7 ${fmtDur(dep-d.aMin-d.lunch)} travaill\u00e9es\r\nEND:VEVENT\r\n`;count++;
+    const loc=(settings.icsLocation||"").replace(/\\n/g,", ");
+    ev+=`BEGIN:VEVENT\r\nUID:${y}${mo}${da}-pointeuse@josuerocha.dev\r\nDTSTART:${st}\r\nDTEND:${en}\r\nSUMMARY:${settings.icsTitle||"Travail"}\r\n${loc?`LOCATION:${loc}\r\n`:""}DESCRIPTION:Pause ${d.lunch} min \u00b7 ${fmtDur(dep-d.aMin-d.lunch)} travaill\u00e9es\r\nEND:VEVENT\r\n`;count++;
   }
   if(!count){toast("Aucune arriv\u00e9e \u00e0 exporter");return;}
-  const ics=`BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Pointeuse//FR\r\nCALSCALE:GREGORIAN\r\n${ev}END:VCALENDAR\r\n`;
+  const calName=settings.icsCalendar?`X-WR-CALNAME:${settings.icsCalendar}\r\n`:"";
+  const ics=`BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Pointeuse//FR\r\nCALSCALE:GREGORIAN\r\n${calName}${ev}END:VCALENDAR\r\n`;
   const{week:wn,year}=isoWeek(monday);
   downloadBlob(new Blob([ics],{type:"text/calendar"}),`travail-${year}-S${pad(wn)}.ics`);
   toast(`${count} journ\u00e9e(s) export\u00e9e(s)`);
