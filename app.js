@@ -10,7 +10,7 @@ let mondayOffset=0;
 let _aggCache=null;
 function invalidateAggCache(){_aggCache=null;}
 function loadSettings(){try{const v=localStorage.getItem(STORE_SETTINGS);if(v)settings={...DEFAULTS,...JSON.parse(v)};}catch(e){settings={...DEFAULTS};}invalidateAggCache();}
-function saveSettings(){try{localStorage.setItem(STORE_SETTINGS,JSON.stringify(settings));}catch(e){}invalidateAggCache();}
+function saveSettings(invalidate=true){try{localStorage.setItem(STORE_SETTINGS,JSON.stringify(settings));}catch(e){}if(invalidate)invalidateAggCache();}
 function loadWeek(){week={};try{const v=localStorage.getItem(weekKey(mondayOffset));if(v)week=JSON.parse(v);}catch(e){week={};}}
 function saveWeek(){try{localStorage.setItem(weekKey(mondayOffset),JSON.stringify(week));}catch(e){}invalidateAggCache();}
 
@@ -178,9 +178,9 @@ function setTarget(v){const parsed=parseTarget(v);settings.weeklyTarget=parsed!=
 function setDays(v){settings.days=Math.max(1,Math.min(7,Number(v)||5));saveSettings();syncPush();render();}
 function setLunch(v){settings.lunch=Math.max(0,Number(v)||0);saveSettings();syncPush();render();}
 function setArr(v){settings.arrival=v||"08:15";saveSettings();syncPush();render();}
-function setIcsTitle(v){settings.icsTitle=v||DEFAULTS.icsTitle;saveSettings();syncPush();}
-function setIcsLocation(v){settings.icsLocation=v||"";saveSettings();syncPush();}
-function setIcsCal(v){settings.icsCalendar=v||"";saveSettings();syncPush();}
+function setIcsTitle(v){settings.icsTitle=v||DEFAULTS.icsTitle;saveSettings(false);syncPush();}
+function setIcsLocation(v){settings.icsLocation=v||"";saveSettings(false);syncPush();}
+function setIcsCal(v){settings.icsCalendar=v||"";saveSettings(false);syncPush();}
 async function handleSyncConnect(){
   const input=document.getElementById("sync-token");
   if(!input||!input.value.trim()){toast("Token requis");return;}
@@ -438,7 +438,7 @@ function render(){
   </details>`;
 }
 
-function handleSyncDisconnect(){syncDisconnect();render();}
+function handleSyncDisconnect(){if(!confirm("Déconnecter la synchronisation ?"))return;syncDisconnect();render();}
 
 /* ---------- expose globals for inline handlers ---------- */
 Object.assign(window,{cycleStatus,setField,nav,goToday,goToWeekKey,openHistory,clearWeek,setTarget,setDays,setLunch,setArr,setIcsTitle,setIcsLocation,setIcsCal,handleSyncConnect,handleSyncDisconnect,prefillHolidays,exportICS,exportCSV,exportBackup,importBackup,applyUpdate,render});
