@@ -1,0 +1,144 @@
+import{DEFAULTS,esc,pad,toMin,toHHMM,fmtDur,fmtDelta,dailyTarget,isoWeek,isoWeekMonday,computeWeekObj,easterMonday,frenchHolidays,parseTarget,validateBackup}from"./compute.js";
+
+let passed=0,failed=0;
+function assert(name,cond){
+  if(cond){passed++;console.log(`  \x1b[32m✓\x1b[0m ${name}`);}
+  else{failed++;console.log(`  \x1b[31m✗\x1b[0m ${name}`);}
+}
+function eq(name,a,b){assert(name+` — got ${JSON.stringify(a)}, expected ${JSON.stringify(b)}`,JSON.stringify(a)===JSON.stringify(b));}
+function localDate(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());}
+
+const settings={...DEFAULTS};
+
+console.log("\nPointeuse — Tests\n");
+
+// --- esc ---
+eq("esc(null)",esc(null),"");
+eq("esc escapes HTML",esc('<b>"x"&y</b>'),'&lt;b&gt;&quot;x&quot;&amp;y&lt;/b&gt;');
+eq("esc passes clean string",esc("hello"),"hello");
+
+// --- pad ---
+eq("pad(5)",pad(5),"05");
+eq("pad(12)",pad(12),"12");
+eq("pad(0)",pad(0),"00");
+
+// --- toMin ---
+eq("toMin 08:15",toMin("08:15"),495);
+eq("toMin 00:00",toMin("00:00"),0);
+eq("toMin 23:59",toMin("23:59"),1439);
+eq("toMin null",toMin(""),null);
+eq("toMin undefined",toMin(undefined),null);
+
+// --- toHHMM ---
+eq("toHHMM 0",toHHMM(0),"00:00");
+eq("toHHMM 495",toHHMM(495),"08:15");
+eq("toHHMM 1439",toHHMM(1439),"23:59");
+eq("toHHMM negative wraps",toHHMM(-60),"23:00");
+
+// --- fmtDur ---
+eq("fmtDur null",fmtDur(null),"\u2014");
+eq("fmtDur 0",fmtDur(0),"0h00");
+eq("fmtDur 468",fmtDur(468),"7h48");
+eq("fmtDur 90",fmtDur(90),"1h30");
+eq("fmtDur negative",fmtDur(-90),"-1h30");
+
+// --- fmtDelta ---
+eq("fmtDelta null",fmtDelta(null),"\u2014");
+eq("fmtDelta 0",fmtDelta(0),"0h00");
+eq("fmtDelta +30",fmtDelta(30),"+0h30");
+eq("fmtDelta -15",fmtDelta(-15),"\u22120h15");
+
+// --- dailyTarget ---
+eq("dailyTarget default",dailyTarget(settings),468);
+eq("dailyTarget 4 days",dailyTarget({...settings,days:4}),585);
+
+// --- isoWeek ---
+eq("isoWeek 2025-01-06",isoWeek(new Date(2025,0,6)),{week:2,year:2025});
+eq("isoWeek 2024-12-30",isoWeek(new Date(2024,11,30)),{week:1,year:2025});
+
+// --- isoWeekMonday ---
+eq("isoWeekMonday 2025-W02",localDate(isoWeekMonday(2025,2)),"2025-01-06");
+
+// --- computeWeekObj ---
+const testWeek={
+  0:{arrival:"08:15",lunch:45,actualDeparture:"17:00"},
+  1:{arrival:"08:00",lunch:45,actualDeparture:"16:30"},
+  2:{arrival:"08:15",status:"leave"},
+};
+const cw=computeWeekObj(testWeek,settings);
+eq("computeWeekObj realized",cw.realized,945);
+eq("computeWeekObj settledCount",cw.settledCount,2);
+eq("computeWeekObj anyCount",cw.anyCount,2);
+eq("computeWeekObj settledDelta",cw.settledDelta,9);
+
+const cwEmpty=computeWeekObj({},settings);
+eq("computeWeekObj empty realized",cwEmpty.realized,0);
+eq("computeWeekObj empty count",cwEmpty.settledCount,0);
+
+const cw2=computeWeekObj({0:{arrival:"08:15",lunch:45}},settings);
+eq("unsettled day: settledDelta=0",cw2.settledDelta,0);
+eq("unsettled day: settledCount=0",cw2.settledCount,0);
+eq("unsettled day: anyCount=1",cw2.anyCount,1);
+
+// --- easterMonday ---
+eq("easterMonday 2025",localDate(easterMonday(2025)),"2025-04-21");
+eq("easterMonday 2024",localDate(easterMonday(2024)),"2024-04-01");
+
+// --- frenchHolidays ---
+eq("frenchHolidays returns 11",frenchHolidays(2025).length,11);
+
+// --- parseTarget ---
+eq("parseTarget '39h00'",parseTarget("39h00"),2340);
+eq("parseTarget '39h'",parseTarget("39h"),2340);
+eq("parseTarget '35h30'",parseTarget("35h30"),2130);
+eq("parseTarget '40'",parseTarget("40"),2400);
+
+// --- validateBackup ---
+const validBk={"pointeuse:settings":'{"weeklyTarget":2340,"days":5,"lunch":45,"arrival":"08:15"}',"pointeuse:week:2025-W25":'{"0":{"arrival":"08:15","lunch":45,"actualDeparture":"17:00"}}'};
+eq("validateBackup valid",validateBackup(validBk),true);
+eq("validateBackup not object",validateBackup("string"),false);
+eq("validateBackup null",validateBackup(null),false);
+eq("validateBackup bad week key",validateBackup({"pointeuse:week:bad":'{}'}),false);
+eq("validateBackup bad day index",validateBackup({"pointeuse:week:2025-W01":'{"9":{}}'}),false);
+eq("validateBackup bad status",validateBackup({"pointeuse:week:2025-W01":'{"0":{"status":"foo"}}'}),false);
+eq("validateBackup bad arrival",validateBackup({"pointeuse:week:2025-W01":'{"0":{"arrival":"abc"}}'}),false);
+eq("validateBackup bad settings",validateBackup({"pointeuse:settings":'"not an object"'}),false);
+
+// --- computeWeekObj leave/holiday/sick days ---
+const cwLeave=computeWeekObj({0:{status:"leave"},1:{arrival:"08:00",lunch:45,actualDeparture:"16:30"}},settings);
+eq("leave day ignored in realized",cwLeave.realized,465);
+eq("leave day ignored in count",cwLeave.settledCount,1);
+eq("leave day ignored in anyCount",cwLeave.anyCount,1);
+
+const cwSick=computeWeekObj({0:{status:"sick"},1:{status:"holiday"}},settings);
+eq("sick+holiday: realized=0",cwSick.realized,0);
+eq("sick+holiday: anyCount=0",cwSick.anyCount,0);
+
+// --- parseTarget edge cases ---
+eq("parseTarget empty",parseTarget(""),null);
+eq("parseTarget letters",parseTarget("abc"),null);
+eq("parseTarget '7h48'",parseTarget("7h48"),468);
+
+// --- validateBackup edge cases ---
+eq("validateBackup array",validateBackup([]),false);
+eq("validateBackup empty obj",validateBackup({}),true);
+eq("validateBackup non-pointeuse keys ignored",validateBackup({"other":"value"}),true);
+eq("validateBackup bad lunch type",validateBackup({"pointeuse:week:2025-W01":'{"0":{"lunch":"string"}}'}),false);
+eq("validateBackup settings bad days",validateBackup({"pointeuse:settings":'{"days":0}'}),false);
+eq("validateBackup settings bad days high",validateBackup({"pointeuse:settings":'{"days":8}'}),false);
+eq("validateBackup settings bad target",validateBackup({"pointeuse:settings":'{"weeklyTarget":-1}'}),false);
+
+// --- esc edge cases ---
+eq("esc(0)",esc(0),"0");
+eq("esc(undefined)",esc(undefined),"");
+
+// --- fmtDur edge cases ---
+eq("fmtDur 59",fmtDur(59),"0h59");
+eq("fmtDur 60",fmtDur(60),"1h00");
+
+// --- fmtDelta rounding ---
+eq("fmtDelta 0.4 rounds to 0",fmtDelta(0.4),"0h00");
+eq("fmtDelta -0.4 rounds to 0",fmtDelta(-0.4),"0h00");
+
+console.log(`\n${passed} passed, ${failed} failed\n`);
+process.exit(failed>0?1:0);

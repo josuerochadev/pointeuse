@@ -19,6 +19,7 @@ export function getMonday(off=0){const d=new Date();const day=(d.getDay()+6)%7;d
 export function isoWeek(d){const t=new Date(d);t.setHours(0,0,0,0);t.setDate(t.getDate()+3-((t.getDay()+6)%7));const w1=new Date(t.getFullYear(),0,4);return{week:1+Math.round(((t-w1)/864e5-3+((w1.getDay()+6)%7))/7),year:t.getFullYear()};}
 export function isoWeekMonday(year,wk){const jan4=new Date(year,0,4);const day=(jan4.getDay()+6)%7;const w1=new Date(jan4);w1.setDate(jan4.getDate()-day);const m=new Date(w1);m.setDate(w1.getDate()+(wk-1)*7);m.setHours(0,0,0,0);return m;}
 export function weekKey(off){const m=getMonday(off);const{week,year}=isoWeek(m);return`pointeuse:week:${year}-W${pad(week)}`;}
+export function dayOfYear(d){const start=new Date(d.getFullYear(),0,0);return Math.floor((d-start)/864e5);}
 export function todayIndex(off){if(off!==0)return -1;return (new Date().getDay()+6)%7;}
 export function dailyTarget(settings){return Math.round(settings.weeklyTarget/settings.days);}
 
@@ -29,6 +30,7 @@ export function computeWeekObj(w,settings){
   const n=Math.max(settings.days,7);
   for(let i=0;i<n;i++){
     const d=w[i];if(!d)continue;
+    if(d.status&&d.status!=="work")continue;
     const a=toMin(d.arrival);if(a==null)continue;
     anyCount++;
     const lunch=(d.lunch===0||d.lunch)?Number(d.lunch):settings.lunch;
@@ -62,7 +64,7 @@ export function frenchHolidays(year){
 }
 
 /* ---------- target parser ---------- */
-export function parseTarget(s){const m=s.match(/(\d+)\s*h\s*(\d+)?/i);if(m)return Number(m[1])*60+(m[2]?Number(m[2]):0);const n=Number(s);return isNaN(n)?null:n*60;}
+export function parseTarget(s){const m=s.match(/(\d+)\s*h\s*(\d+)?/i);if(m)return Number(m[1])*60+(m[2]?Number(m[2]):0);const t=s.trim();if(t==="")return null;const n=Number(t);return isNaN(n)?null:n*60;}
 
 /* ---------- backup validation ---------- */
 export function validateBackup(o){
