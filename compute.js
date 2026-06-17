@@ -1,6 +1,6 @@
 /* ---------- constants ---------- */
 export const STORE_SETTINGS="pointeuse:settings";
-export const DEFAULTS={weeklyTarget:2340,days:5,lunch:45,arrival:"08:15",icsTitle:"Travail \u2014 Euro-Information",icsLocation:"Wacken, Strasbourg\\n17 Boulevard de Dresde\\n67000 Strasbourg\\nFrance",icsCalendar:"Professionnel"};
+export const DEFAULTS={weeklyTarget:2340,days:5,lunch:45,arrival:"08:15",icsTitle:"Travail",icsLocation:"",icsCalendar:""};
 export const DAYNAMES=["lundi","mardi","mercredi","jeudi","vendredi","samedi","dimanche"];
 export const MONTHNAMES=["janvier","f\u00e9vrier","mars","avril","mai","juin","juillet","ao\u00fbt","septembre","octobre","novembre","d\u00e9cembre"];
 
