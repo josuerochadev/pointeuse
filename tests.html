@@ -123,6 +123,42 @@ eq("validateBackup bad status",validateBackup({"pointeuse:week:2025-W01":'{"0":{
 eq("validateBackup bad arrival",validateBackup({"pointeuse:week:2025-W01":'{"0":{"arrival":"abc"}}'}),false);
 eq("validateBackup bad settings",validateBackup({"pointeuse:settings":'"not an object"'}),false);
 
+// --- computeWeekObj leave/holiday/sick days ---
+const cwLeave=computeWeekObj({0:{status:"leave"},1:{arrival:"08:00",lunch:45,actualDeparture:"16:30"}},settings);
+eq("leave day ignored in realized",cwLeave.realized,465);
+eq("leave day ignored in count",cwLeave.settledCount,1);
+eq("leave day ignored in anyCount",cwLeave.anyCount,1);
+
+const cwSick=computeWeekObj({0:{status:"sick"},1:{status:"holiday"}},settings);
+eq("sick+holiday: realized=0",cwSick.realized,0);
+eq("sick+holiday: anyCount=0",cwSick.anyCount,0);
+
+// --- parseTarget edge cases ---
+eq("parseTarget empty",parseTarget(""),null);
+eq("parseTarget letters",parseTarget("abc"),null);
+eq("parseTarget '7h48'",parseTarget("7h48"),468);
+
+// --- validateBackup edge cases ---
+eq("validateBackup array",validateBackup([]),false);
+eq("validateBackup empty obj",validateBackup({}),true);
+eq("validateBackup non-pointeuse keys ignored",validateBackup({"other":"value"}),true);
+eq("validateBackup bad lunch type",validateBackup({"pointeuse:week:2025-W01":'{"0":{"lunch":"string"}}'}),false);
+eq("validateBackup settings bad days",validateBackup({"pointeuse:settings":'{"days":0}'}),false);
+eq("validateBackup settings bad days high",validateBackup({"pointeuse:settings":'{"days":8}'}),false);
+eq("validateBackup settings bad target",validateBackup({"pointeuse:settings":'{"weeklyTarget":-1}'}),false);
+
+// --- esc edge cases ---
+eq("esc(0)",esc(0),"0");
+eq("esc(undefined)",esc(undefined),"");
+
+// --- fmtDur edge cases ---
+eq("fmtDur 59",fmtDur(59),"0h59");
+eq("fmtDur 60",fmtDur(60),"1h00");
+
+// --- fmtDelta rounding ---
+eq("fmtDelta 0.4 rounds to 0",fmtDelta(0.4),"0h00");
+eq("fmtDelta -0.4 rounds to 0",fmtDelta(-0.4),"0h00");
+
 // --- Summary ---
 const sum=document.getElementById("sum");
 if(_failed===0){sum.className="summary ok";sum.textContent=`${_passed} tests pass\u00e9s`;}
