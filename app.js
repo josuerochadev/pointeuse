@@ -62,7 +62,7 @@ function _computeAgg(){
   let total=0;const arr=[];
   forEachWeek(({year,wk,data,monday})=>{
     const c=computeWeekObj(data,settings);
-    try{total+=c.settledDelta;}catch(e){}
+    try{total+=c.settledDelta;}catch(e){console.warn("aggregation error for week",year,wk,e);}
     if(c.anyCount>0)arr.push({year,wk,monday,...c});
   });
   arr.sort((a,b)=>b.monday-a.monday);

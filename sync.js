@@ -172,5 +172,5 @@ async function _doPushCore(toastFn,_retry=false){
       conf.lastSync=Date.now();
       _saveSyncConf(conf);
     }
-  }catch(e){/* offline */}
+  }catch(e){console.warn("syncPush offline or error:",e);}
 }
