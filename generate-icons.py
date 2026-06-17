@@ -56,11 +56,11 @@ def draw_arc(draw, cx, cy, radius, stroke_w, color_start, color_end, segments=12
         x1 = cx + radius * math.cos(a1)
         y1 = cy + radius * math.sin(a1)
 
-        # Perpendicular offsets at each endpoint
-        nx0 = -math.sin(a0) * hw
-        ny0 = math.cos(a0) * hw
-        nx1 = -math.sin(a1) * hw
-        ny1 = math.cos(a1) * hw
+        # Radial (perpendicular to arc) offsets at each endpoint
+        nx0 = math.cos(a0) * hw
+        ny0 = math.sin(a0) * hw
+        nx1 = math.cos(a1) * hw
+        ny1 = math.sin(a1) * hw
 
         polygon = [
             (x0 - nx0, y0 - ny0),
@@ -89,8 +89,8 @@ def draw_arc(draw, cx, cy, radius, stroke_w, color_start, color_end, segments=12
         fill=color_end
     )
 
-    # Progress cursor dot at end — slightly larger (~0.7x stroke_w radius)
-    dot_r = stroke_w * 0.7
+    # Progress cursor dot at end — slightly larger than stroke cap
+    dot_r = hw * 1.35
     draw.ellipse(
         [xe - dot_r, ye - dot_r, xe + dot_r, ye + dot_r],
         fill=color_end
