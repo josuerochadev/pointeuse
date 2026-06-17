@@ -1,4 +1,4 @@
-import{STORE_SETTINGS,DEFAULTS,DAYNAMES,MONTHNAMES,esc,pad,toMin,toHHMM,fmtDur,fmtDelta,getMonday,isoWeek,isoWeekMonday,weekKey,todayIndex,dailyTarget,computeWeekObj,easterMonday,frenchHolidays,parseTarget,validateBackup}from"./compute.js";
+import{STORE_SETTINGS,DEFAULTS,DAYNAMES,MONTHNAMES,esc,pad,toMin,toHHMM,fmtDur,fmtDelta,getMonday,isoWeek,isoWeekMonday,weekKey,dayOfYear,todayIndex,dailyTarget,computeWeekObj,easterMonday,frenchHolidays,parseTarget,validateBackup}from"./compute.js";
 import{syncConnect,syncDisconnect,syncStatus,syncPull,syncPush,setSyncToast}from"./sync.js";
 
 /* ---------- state ---------- */
@@ -6,6 +6,7 @@ let settings={...DEFAULTS};
 let week={};
 let mondayOffset=0;
 let _rendered=false;
+let _bound=false;
 
 /* ---------- storage ---------- */
 let _aggCache=null;
@@ -260,6 +261,7 @@ function render(){
   if(!_rendered){
     _renderFull(app);
     _rendered=true;
+    if(!_bound){_bindEvents(app);_bound=true;}
   } else {
     _renderUpdate(app);
   }
@@ -271,7 +273,7 @@ function _renderFull(app){
   const heroIdx=ti>=0?ti:0;
   const hd=dayData(heroIdx);
   const heroDate=getMonday(mondayOffset);heroDate.setDate(heroDate.getDate()+heroIdx);
-  const dateStr=heroDate.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"});
+  const dateStr=heroDate.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})+", jour "+dayOfYear(heroDate);
 
   let fillPct=0,nowPct=null,over=false;
   if(hd.aMin!=null&&hd.predicted!=null){
@@ -297,12 +299,12 @@ function _renderFull(app){
     const badges={leave:`<span class="day-badge leave">cong\u00e9</span>`,holiday:`<span class="day-badge holiday">f\u00e9ri\u00e9</span>`,sick:`<span class="day-badge sick">maladie</span>`};
     const badgeHTML=badges[d.status]||"";
     rows+=`<div class="row${isToday?" today":""}${isOff?" off":""}" data-row="${i}">
-      <div class="day" onclick="cycleStatus(${i})" tabindex="0" role="button" aria-label="Changer statut ${DAYNAMES[i]}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();cycleStatus(${i})}">${DAYNAMES[i].slice(0,3)}${isUnclosed?`<span class="unclosed-dot"></span>`:""}<small>${dd.getDate()}/${pad(dd.getMonth()+1)}</small>${badgeHTML}</div>
-      <input type="time" value="${esc(d.arrival)}" aria-label="Arriv\u00e9e ${DAYNAMES[i]}" onblur="setField(${i},'arrival',this.value)">
-      <div class="pause"><input type="number" min="0" max="180" value="${esc(d.lunch)}" aria-label="Pause ${DAYNAMES[i]}" onblur="setField(${i},'lunch',this.value)"></div>
+      <div class="day" data-action="cycleStatus" data-arg="${i}" tabindex="0" role="button" aria-label="Changer statut ${DAYNAMES[i]}">${DAYNAMES[i].slice(0,3)}${isUnclosed?`<span class="unclosed-dot"></span>`:""}<small>${dd.getDate()}/${pad(dd.getMonth()+1)}</small><small class="quant">${dayOfYear(dd)}</small>${badgeHTML}</div>
+      <input type="time" value="${esc(d.arrival)}" aria-label="Arriv\u00e9e ${DAYNAMES[i]}" data-field="arrival" data-idx="${i}">
+      <div class="pause"><input type="number" min="0" max="180" value="${esc(d.lunch)}" aria-label="Pause ${DAYNAMES[i]}" data-field="lunch" data-idx="${i}"></div>
       <div class="prev ${d.predicted==null?'empty':''}" data-prev="${i}">${d.predicted!=null?toHHMM(d.predicted):"\u2014"}</div>
       <div class="realcell" data-realcell="${i}">
-        <input type="time" value="${esc(d.actual)}" aria-label="D\u00e9part r\u00e9el ${DAYNAMES[i]}" onblur="setField(${i},'actualDeparture',this.value)">
+        <input type="time" value="${esc(d.actual)}" aria-label="D\u00e9part r\u00e9el ${DAYNAMES[i]}" data-field="actualDeparture" data-idx="${i}">
         ${d.settled?`<div class="ddelta ${d.dailyDelta>=0?'pos':'neg'}">${fmtDelta(d.dailyDelta)}</div>`:``}
       </div>
     </div>`;
@@ -321,7 +323,7 @@ function _renderFull(app){
     const end=new Date(h.monday);end.setDate(end.getDate()+settings.days-1);
     const rng=h.monday.toLocaleDateString("fr-FR",{day:"numeric",month:"short"})+" \u2013 "+end.toLocaleDateString("fr-FR",{day:"numeric",month:"short"});
     const dcls=h.settledDelta>=0?"pos":"neg";
-    return `<div class="hrow" onclick="goToWeekKey(${h.year},${h.wk})">
+    return `<div class="hrow" data-action="goToWeekKey" data-year="${h.year}" data-wk="${h.wk}">
       <div class="hr-date">Semaine ${h.wk}<small>${rng}</small></div>
       <div class="hr-tot">${fmtDur(h.realized)}</div>
       <div class="hr-d ${dcls}">${h.settledCount?fmtDelta(h.settledDelta):"\u2014"}</div>
@@ -334,13 +336,13 @@ function _renderFull(app){
   <div class="top">
     <div class="brand"><b>Pointeuse</b><span data-weeknum>sem. ${wn}</span></div>
     <div class="weeknav">
-      <button onclick="nav(-1)" aria-label="Semaine pr\u00e9c\u00e9dente">\u2039</button>
-      ${mondayOffset!==0?`<button class="today" onclick="goToday()" aria-label="Retour \u00e0 cette semaine">aujourd\u2019hui</button>`:`<span class="lbl">cette semaine</span>`}
-      <button onclick="nav(1)" aria-label="Semaine suivante">\u203A</button>
+      <button data-action="nav" data-arg="-1" aria-label="Semaine pr\u00e9c\u00e9dente">\u2039</button>
+      ${mondayOffset!==0?`<button class="today" data-action="goToday" aria-label="Retour \u00e0 cette semaine">aujourd\u2019hui</button>`:`<span class="lbl">cette semaine</span>`}
+      <button data-action="nav" data-arg="1" aria-label="Semaine suivante">\u203A</button>
     </div>
   </div>
 
-  <div class="balance" onclick="openHistory()" tabindex="0" role="button" aria-label="Voir l'historique \u2014 solde cumul\u00e9 ${fmtDelta(bal)}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openHistory()}">
+  <div class="balance" data-action="openHistory" tabindex="0" role="button" aria-label="Voir l'historique \u2014 solde cumul\u00e9 ${fmtDelta(bal)}">
     <div class="l">Solde cumul\u00e9<small>avance / retard, tous jours cl\u00f4tur\u00e9s</small></div>
     <b data-bal class="${balCls}">${fmtDelta(bal)}</b>
   </div>
@@ -350,14 +352,14 @@ function _renderFull(app){
     if(!uc.length)return"";
     const label=uc.length===1?"1 jour non cl\u00f4tur\u00e9":uc.length+" jours non cl\u00f4tur\u00e9s";
     const dates=uc.slice(0,5).map(u=>DAYNAMES[u.dayIdx].slice(0,3)+" "+u.date.getDate()+"/"+ pad(u.date.getMonth()+1)).join(", ")+(uc.length>5?"...":"");
-    return`<div class="warn" onclick="goToWeekKey(${uc[0].year},${uc[0].wk})" role="alert"><div class="wico">\u26A0</div><div class="wtxt"><b>${label}</b> \u2014 ${dates}</div></div>`;
+    return`<div class="warn" data-action="goToWeekKey" data-year="${uc[0].year}" data-wk="${uc[0].wk}" role="alert"><div class="wico">\u26A0</div><div class="wtxt"><b>${label}</b> \u2014 ${dates}</div></div>`;
   })()}
   <div class="hero">
     <div class="eyebrow">${ti>=0?"Aujourd\u2019hui":"Aper\u00e7u \u2014 "+DAYNAMES[heroIdx]}</div>
     <div class="date">${dateStr}</div>
     <div class="leaverow">
       <div><div class="lab">D\u00e9part pr\u00e9vu</div><div class="bigtime ${over?'over':''}" data-hero-leave>${heroLeave}</div></div>
-      <div class="quick"><label>Arriv\u00e9e</label><input type="time" value="${esc(hd.arrival)}" aria-label="Arriv\u00e9e aujourd'hui" onchange="setField(${heroIdx},'arrival',this.value)"></div>
+      <div class="quick"><label>Arriv\u00e9e</label><input type="time" value="${esc(hd.arrival)}" aria-label="Arriv\u00e9e aujourd'hui" data-field="heroArrival" data-idx="${heroIdx}"></div>
     </div>
     <div class="timeline">
       <div class="bar" role="progressbar" aria-valuenow="${Math.round(fillPct)}" aria-valuemin="0" aria-valuemax="100"><div class="fill ${over?'over':''}" data-fill style="width:${fillPct}%"></div><div class="now" data-now style="left:${nowPct!=null?nowPct:0}%;display:${nowPct!=null?'block':'none'}"></div></div>
@@ -386,12 +388,12 @@ function _renderFull(app){
   </div>
 
   <div class="actions">
-    <button class="btn btn-primary" onclick="exportICS()">\u2913 Exporter vers Calendar</button>
-    <button class="btn btn-ghost" onclick="clearWeek()">Effacer la semaine</button>
+    <button class="btn btn-primary" data-action="exportICS">\u2913 Exporter vers Calendar</button>
+    <button class="btn btn-ghost" data-action="clearWeek">Effacer la semaine</button>
   </div>
   <div class="actions" style="margin-top:8px">
-    <button class="btn btn-ghost" onclick="exportBackup()">\u2913 Sauvegarder</button>
-    <button class="btn btn-ghost" onclick="document.getElementById('imp').click()">Restaurer</button>
+    <button class="btn btn-ghost" data-action="exportBackup">\u2913 Sauvegarder</button>
+    <button class="btn btn-ghost" data-action="importTrigger">Restaurer</button>
   </div>
 
   <details class="panel" id="hist">
@@ -416,7 +418,7 @@ function _renderFull(app){
         html+=`<div class="mrow"><div class="mr-label">${MONTHNAMES[m.month]} ${m.year}<small>${detail}</small></div><div class="mr-solde ${dcls}">${m.settledCount?fmtDelta(m.delta):"\u2014"}</div></div>`;
       }
       html+=`</div>`;
-      html+=`<div style="padding:12px 18px;border-top:1px solid #232E3A"><button class="btn btn-ghost" style="flex:none;width:100%" onclick="exportCSV()">\u2913 Exporter CSV (tous les jours)</button></div>`;
+      html+=`<div style="padding:12px 18px;border-top:1px solid #232E3A"><button class="btn btn-ghost" style="flex:none;width:100%" data-action="exportCSV">\u2913 Exporter CSV (tous les jours)</button></div>`;
       return html;
     })()}
   </details>
@@ -424,28 +426,96 @@ function _renderFull(app){
   <details class="panel">
     <summary>\u2699 R\u00e9glages</summary>
     <div class="setgrid">
-      <div class="f"><label>Objectif hebdo</label><input type="text" value="${fmtDur(settings.weeklyTarget)}" aria-label="Objectif hebdomadaire" onchange="setTarget(this.value)"></div>
-      <div class="f"><label>Jours / semaine</label><input type="number" min="1" max="7" value="${settings.days}" aria-label="Jours par semaine" onchange="setDays(this.value)"></div>
-      <div class="f"><label>Pause par d\u00e9faut (min)</label><input type="number" min="0" max="180" value="${esc(settings.lunch)}" aria-label="Pause par d\u00e9faut en minutes" onchange="setLunch(this.value)"></div>
-      <div class="f"><label>Arriv\u00e9e par d\u00e9faut</label><input type="time" value="${esc(settings.arrival)}" aria-label="Arriv\u00e9e par d\u00e9faut" onchange="setArr(this.value)"></div>
+      <div class="f"><label>Objectif hebdo</label><input type="text" value="${fmtDur(settings.weeklyTarget)}" aria-label="Objectif hebdomadaire" data-field="weeklyTarget"></div>
+      <div class="f"><label>Jours / semaine</label><input type="number" min="1" max="7" value="${settings.days}" aria-label="Jours par semaine" data-field="days"></div>
+      <div class="f"><label>Pause par d\u00e9faut (min)</label><input type="number" min="0" max="180" value="${esc(settings.lunch)}" aria-label="Pause par d\u00e9faut en minutes" data-field="defaultLunch"></div>
+      <div class="f"><label>Arriv\u00e9e par d\u00e9faut</label><input type="time" value="${esc(settings.arrival)}" aria-label="Arriv\u00e9e par d\u00e9faut" data-field="defaultArrival"></div>
       <div class="sethint">Cible quotidienne : <b>${fmtDur(dt)}</b> de travail effectif. Le solde ne compte que les jours avec un <b>d\u00e9part r\u00e9el</b> \u2014 les cong\u00e9s restent neutres.</div>
-      <div class="f" style="grid-column:1/-1"><label>Titre calendrier</label><input type="text" value="${esc(settings.icsTitle||"")}" placeholder="Travail" onblur="setIcsTitle(this.value)"></div>
-      <div class="f" style="grid-column:1/-1"><label>Lieu calendrier</label><input type="text" value="${esc((settings.icsLocation||"").replace(/\\\\n/g,", "))}" placeholder="Adresse" onblur="setIcsLocation(this.value.replace(/, /g,'\\\\n'))"></div>
-      <div class="f" style="grid-column:1/-1"><label>Calendrier cible</label><input type="text" value="${esc(settings.icsCalendar||"")}" placeholder="Professionnel" onblur="setIcsCal(this.value)"></div>
-      <div class="sethint" style="margin-top:8px"><button class="btn btn-ghost" style="flex:none;width:100%;margin-top:6px" onclick="prefillHolidays(${new Date().getFullYear()})">Charger les jours f\u00e9ri\u00e9s ${new Date().getFullYear()}</button><button class="btn btn-ghost" style="flex:none;width:100%;margin-top:6px" onclick="prefillHolidays(${new Date().getFullYear()+1})">Charger les jours f\u00e9ri\u00e9s ${new Date().getFullYear()+1}</button></div>
+      <div class="f" style="grid-column:1/-1"><label>Titre calendrier</label><input type="text" value="${esc(settings.icsTitle||"")}" placeholder="Travail" data-field="icsTitle"></div>
+      <div class="f" style="grid-column:1/-1"><label>Lieu calendrier</label><input type="text" value="${esc((settings.icsLocation||"").replace(/\\\\n/g,", "))}" placeholder="Adresse" data-field="icsLocation"></div>
+      <div class="f" style="grid-column:1/-1"><label>Calendrier cible</label><input type="text" value="${esc(settings.icsCalendar||"")}" placeholder="Professionnel" data-field="icsCalendar"></div>
+      <div class="sethint" style="margin-top:8px"><button class="btn btn-ghost" style="flex:none;width:100%;margin-top:6px" data-action="prefillHolidays" data-arg="${new Date().getFullYear()}">Charger les jours f\u00e9ri\u00e9s ${new Date().getFullYear()}</button><button class="btn btn-ghost" style="flex:none;width:100%;margin-top:6px" data-action="prefillHolidays" data-arg="${new Date().getFullYear()+1}">Charger les jours f\u00e9ri\u00e9s ${new Date().getFullYear()+1}</button></div>
       <div class="sync-section">
         <label style="display:block;margin-bottom:8px">SYNCHRONISATION</label>
         ${(()=>{
           const st=syncStatus();
           if(st.connected){
             const d=st.lastSync?new Date(st.lastSync).toLocaleString("fr-FR"):"jamais";
-            return`<div class="sync-row"><div><div class="sync-badge">Synchronis\u00e9</div><small>Dernier sync : ${d}</small></div><button class="btn btn-ghost" style="flex:none;padding:8px 14px" onclick="handleSyncDisconnect()">D\u00e9connecter</button></div>`;
+            return`<div class="sync-row"><div><div class="sync-badge">Synchronis\u00e9</div><small>Dernier sync : ${d}</small></div><button class="btn btn-ghost" style="flex:none;padding:8px 14px" data-action="syncDisconnect">D\u00e9connecter</button></div>`;
           }
-          return`<div class="sync-connect"><input type="password" id="sync-token" placeholder="Token GitHub (scope gist)" aria-label="Token GitHub"><button class="btn btn-primary" style="flex:none;padding:8px 14px" onclick="handleSyncConnect()">Connecter</button></div><div class="sethint" style="margin-top:6px">Cr\u00e9er un token sur GitHub \u2192 Settings \u2192 Developer settings \u2192 Personal access tokens. Scope : <b>gist</b> uniquement.</div>`;
+          return`<div class="sync-connect"><input type="password" id="sync-token" placeholder="Token GitHub (scope gist)" aria-label="Token GitHub"><button class="btn btn-primary" style="flex:none;padding:8px 14px" data-action="syncConnect">Connecter</button></div><div class="sethint" style="margin-top:6px">Cr\u00e9er un token sur GitHub \u2192 Settings \u2192 Developer settings \u2192 Personal access tokens. Scope : <b>gist</b> uniquement.</div>`;
         })()}
       </div>
     </div>
   </details>`;
+}
+
+/* ---------- event delegation ---------- */
+function _bindEvents(app){
+  app.addEventListener("click",e=>{
+    const btn=e.target.closest("[data-action]");
+    if(!btn)return;
+    e.preventDefault();
+    const action=btn.dataset.action;
+    const arg=btn.dataset.arg;
+    switch(action){
+      case"nav":nav(Number(arg));break;
+      case"goToday":goToday();break;
+      case"cycleStatus":cycleStatus(Number(arg));break;
+      case"openHistory":openHistory();break;
+      case"exportICS":exportICS();break;
+      case"clearWeek":clearWeek();break;
+      case"exportBackup":exportBackup();break;
+      case"importTrigger":document.getElementById("imp").click();break;
+      case"exportCSV":exportCSV();break;
+      case"prefillHolidays":prefillHolidays(Number(arg));break;
+      case"syncConnect":handleSyncConnect();break;
+      case"syncDisconnect":handleSyncDisconnect();break;
+      case"goToWeekKey":goToWeekKey(Number(btn.dataset.year),Number(btn.dataset.wk));break;
+    }
+  });
+
+  app.addEventListener("change",e=>{
+    const input=e.target.closest("[data-field]");
+    if(!input)return;
+    const field=input.dataset.field;
+    const idx=input.dataset.idx;
+    switch(field){
+      case"arrival":case"actualDeparture":case"lunch":
+        setField(Number(idx),field,input.value);break;
+      case"heroArrival":
+        setField(Number(idx),"arrival",input.value);break;
+      case"weeklyTarget":setTarget(input.value);break;
+      case"days":setDays(input.value);break;
+      case"defaultLunch":setLunch(input.value);break;
+      case"defaultArrival":setArr(input.value);break;
+      case"icsTitle":setIcsTitle(input.value);break;
+      case"icsLocation":setIcsLocation(input.value.replace(/, /g,"\\n"));break;
+      case"icsCalendar":setIcsCal(input.value);break;
+    }
+  });
+
+  app.addEventListener("blur",e=>{
+    const input=e.target.closest("[data-field]");
+    if(!input)return;
+    const field=input.dataset.field;
+    const idx=input.dataset.idx;
+    if(field==="arrival"||field==="actualDeparture"||field==="lunch"||field==="heroArrival"){
+      const actualField=field==="heroArrival"?"arrival":field;
+      setField(Number(idx),actualField,input.value);
+    }
+    if(field==="icsTitle")setIcsTitle(input.value);
+    if(field==="icsLocation")setIcsLocation(input.value.replace(/, /g,"\\n"));
+    if(field==="icsCalendar")setIcsCal(input.value);
+  },true);
+
+  app.addEventListener("keydown",e=>{
+    const btn=e.target.closest("[data-action]");
+    if(!btn)return;
+    if(e.key==="Enter"||e.key===" "){e.preventDefault();btn.click();}
+  });
+
+  document.getElementById("imp").addEventListener("change",function(){importBackup(this.files[0]);this.value="";});
 }
 
 function _renderUpdate(app){
@@ -525,10 +595,7 @@ function _renderUpdate(app){
   if(elSolde){elSolde.textContent=wSolde;elSolde.className="sval "+wSoldeCls;}
 }
 
-function handleSyncDisconnect(){if(!confirm("Déconnecter la synchronisation ?"))return;syncDisconnect();_rendered=false;render();}
-
-/* ---------- expose globals for inline handlers ---------- */
-Object.assign(window,{cycleStatus,setField,nav,goToday,goToWeekKey,openHistory,clearWeek,setTarget,setDays,setLunch,setArr,setIcsTitle,setIcsLocation,setIcsCal,handleSyncConnect,handleSyncDisconnect,prefillHolidays,exportICS,exportCSV,exportBackup,importBackup,applyUpdate,render});
+function handleSyncDisconnect(){if(!confirm("D\u00e9connecter la synchronisation ?"))return;syncDisconnect();_rendered=false;render();}
 
 /* ---------- service worker ---------- */
 let _waitingSW=null;
@@ -539,7 +606,8 @@ if('serviceWorker' in navigator){
       _waitingSW=sw;
       const b=document.createElement('div');
       b.className='sw-update';
-      b.innerHTML='Mise \u00e0 jour disponible <button onclick="applyUpdate()">Recharger</button>';
+      b.textContent='Mise \u00e0 jour disponible ';
+      const btn=document.createElement('button');btn.textContent='Recharger';btn.addEventListener('click',applyUpdate);b.appendChild(btn);
       document.body.appendChild(b);
     }
     if(reg.waiting)onNewSW(reg.waiting);
