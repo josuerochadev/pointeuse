@@ -151,3 +151,52 @@ details.panel[open] summary{border-bottom:1px solid var(--line)}
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:0.01ms !important;transition-duration:0.01ms !important}
 }
+
+@media(prefers-color-scheme:light){
+  :root{
+    --ink:#F7F5F0;--ink-2:#FFFFFF;--line:#E6E3DC;
+    --paper:#FFFFFF;--paper-2:#FFFFFF;
+    --text:#1C2530;--muted:#6A7686;--faint:#9AA5B1;
+    --leave:#1F7A5E;--leave-soft:#E4F1EB;
+    --over:#B5702A;--over-soft:#F6EBDC;
+    --pos-d:#1F7A5E;--neg-d:#B5702A;
+    --shadow:0 1px 2px rgba(10,18,28,.06),0 8px 24px rgba(10,18,28,.08);
+  }
+  html,body{background:var(--ink);color:var(--text)}
+  .brand b{color:var(--text)}
+  .brand span{color:var(--muted)}
+  .weeknav button{background:var(--ink-2);border-color:var(--line);color:var(--text)}
+  .weeknav button:hover{background:#EEEBE4}
+  .weeknav .lbl{color:var(--muted)}
+  .weeknav .today{color:var(--leave)}
+  .balance{background:var(--ink-2);border-color:var(--line)}
+  .balance:hover{background:#F0EEE9}
+  .balance .l{color:var(--muted)}
+  .balance .l small{color:var(--faint)}
+  .btn-ghost{background:var(--ink-2);color:var(--text);border-color:var(--line)}
+  .btn-ghost:hover{background:#F0EEE9}
+  details.panel{background:var(--ink-2);border-color:var(--line)}
+  details.panel summary{color:var(--text)}
+  details.panel[open] summary{border-color:var(--line)}
+  .setgrid input{background:#F7F5F0;border-color:var(--line);color:var(--text)}
+  .hrow{border-color:var(--line)}
+  .hrow:hover{background:#F0EEE9}
+  .hrow .hr-date{color:var(--text)}
+  .hrow .hr-date small{color:var(--muted)}
+  .hrow .hr-tot{color:var(--muted)}
+  .mrow{border-color:var(--line)}
+  .mrow .mr-label{color:var(--text)}
+  .mrow .mr-label small{color:var(--muted)}
+  .hempty{color:var(--muted)}
+  .sethint{color:var(--muted)}
+  .sethint b{color:var(--text)}
+  .sync-section{border-color:var(--line)}
+  .sync-badge{color:var(--leave)}
+  .sync-connect input{background:#F7F5F0;border-color:var(--line);color:var(--text)}
+  .toast{background:var(--text);color:#fff}
+  .loading{color:var(--muted)}
+  .row{border-color:var(--line)}
+  .row.today{background:var(--leave-soft)}
+  .sw-update{background:var(--leave)}
+  .warn{background:rgba(181,112,42,.08);border-color:rgba(181,112,42,.2)}
+}
