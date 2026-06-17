@@ -123,13 +123,14 @@ function _makePush(toastFn){
   };
 }
 
-async function _doPushDefault(){await _doPushCore(()=>{});}
+async function _doPushDefault(){await _doPushCore(()=>{},false);}
 
-async function _doPushCore(toastFn){
+async function _doPushCore(toastFn,_retry=false){
   const conf=_syncConf();
   if(!conf.token)return;
   const content=JSON.stringify(_allPointeuseKeys(),null,2);
   if(!conf.gistId){
+    if(_retry)return;
     // Search for existing gist before creating a new one
     const existing=await _findOrCleanGists(conf.token);
     if(existing){
@@ -160,7 +161,7 @@ async function _doPushCore(toastFn){
     }
     if(res.status===404){
       conf.gistId=null;_saveSyncConf(conf);
-      await _doPushCore(toastFn);
+      await _doPushCore(toastFn,true);
       return;
     }
     if(res.status===403){
