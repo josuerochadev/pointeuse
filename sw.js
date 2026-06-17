@@ -1,7 +1,9 @@
-const CACHE_NAME = 'pointeuse-v16';
+const CACHE_PREFIX = 'pointeuse-';
+const CACHE_NAME = CACHE_PREFIX + 'v17';
 const ASSETS = [
   './',
   './index.html',
+  './offline.html',
   './style.css',
   './compute.js',
   './sync.js',
@@ -31,7 +33,7 @@ self.addEventListener('message', e => {
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+      Promise.all(keys.filter(k => k.startsWith(CACHE_PREFIX) && k !== CACHE_NAME).map(k => caches.delete(k)))
     ).then(() => self.clients.claim())
   );
 });
@@ -51,7 +53,13 @@ self.addEventListener('fetch', e => {
           caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
           return res;
         })
-        .catch(() => caches.match(e.request))
+        .catch(() =>
+          caches.match(e.request).then(cached => {
+            if (cached) return cached;
+            if (e.request.mode === 'navigate') return caches.match('./offline.html');
+            return cached;
+          })
+        )
     );
     return;
   }
