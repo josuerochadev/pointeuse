@@ -34,16 +34,18 @@ La synchronisation entre appareils se fait via un Gist GitHub prive : il suffit 
 - Export CSV et ICS (calendrier)
 - Sauvegarde / restauration JSON
 - Synchronisation multi-appareils via GitHub Gist
+- Chargement des jours feries pour l'annee en cours et l'annee suivante
+- Theme clair / sombre automatique (suit le systeme)
 - Notification de mise a jour (bandeau "Recharger")
-- Fonctionne hors-ligne (PWA installable)
+- Fonctionne hors-ligne avec page de repli (PWA installable)
 
 ## Stack technique
 
 | Categorie | Outils |
 |-----------|--------|
 | Markup | HTML5 |
-| Style | CSS3 (custom properties, grid, flexbox) |
-| Logique | JavaScript vanilla (ES modules, ES2020+) |
+| Style | CSS3 (custom properties, grid, flexbox, prefers-color-scheme) |
+| Logique | JavaScript vanilla (ES modules, ES2020+, event delegation) |
 | Fonts | Fraunces (serif) + Inter (UI) via Google Fonts |
 | Sync | GitHub Gist API (fetch natif, zero dependance) |
 | Offline | Service Worker (network-first HTML/CSS/JS, cache-first assets) |
@@ -79,8 +81,10 @@ pointeuse/
 ├── compute.js          # Fonctions pures (temps, calculs, validation)
 ├── sync.js             # Sync multi-appareils (GitHub Gist)
 ├── app.js              # State, rendu, evenements (module principal)
-├── sw.js               # Service Worker
-├── tests.html          # Tests unitaires (ouvrir dans le navigateur)
+├── sw.js               # Service Worker (network-first + fallback offline)
+├── offline.html        # Page de repli hors-ligne
+├── tests.html          # Tests unitaires (navigateur)
+├── test-runner.js      # Tests unitaires (Node, CI)
 ├── manifest.json       # Manifeste PWA
 └── icons/
     ├── icon-192.png
@@ -92,6 +96,7 @@ pointeuse/
 ## Securite
 
 - Echappement HTML (`esc()`) sur toutes les valeurs utilisateur injectees dans le DOM
+- Event delegation (pas de handlers inline) — compatible CSP strict
 - Validation stricte de la structure des fichiers de sauvegarde importes
 - Token GitHub stocke localement (jamais transmis a un tiers)
 
@@ -100,10 +105,12 @@ pointeuse/
 Ouvrir `tests.html` dans le navigateur ou executer via Node :
 
 ```bash
-node --input-type=module -e "import './compute.js'"
+node test-runner.js
 ```
 
-Les tests couvrent : conversions horaires, formatage, calcul des soldes, jours feries, validation des sauvegardes.
+74 tests couvrent : conversions horaires, formatage, calcul des soldes, jours feries, validation des sauvegardes, cas limites.
+
+La CI GitHub Actions lance automatiquement les tests sur chaque push et pull request.
 
 ---
 
