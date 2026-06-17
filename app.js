@@ -5,6 +5,7 @@ import{syncConnect,syncDisconnect,syncStatus,syncPull,syncPush,setSyncToast}from
 let settings={...DEFAULTS};
 let week={};
 let mondayOffset=0;
+let _rendered=false;
 
 /* ---------- storage ---------- */
 let _aggCache=null;
@@ -422,7 +423,7 @@ function render(){
       <div class="f" style="grid-column:1/-1"><label>Titre calendrier</label><input type="text" value="${esc(settings.icsTitle||"")}" placeholder="Travail" onblur="setIcsTitle(this.value)"></div>
       <div class="f" style="grid-column:1/-1"><label>Lieu calendrier</label><input type="text" value="${esc((settings.icsLocation||"").replace(/\\\\n/g,", "))}" placeholder="Adresse" onblur="setIcsLocation(this.value.replace(/, /g,'\\\\n'))"></div>
       <div class="f" style="grid-column:1/-1"><label>Calendrier cible</label><input type="text" value="${esc(settings.icsCalendar||"")}" placeholder="Professionnel" onblur="setIcsCal(this.value)"></div>
-      <div class="sethint" style="margin-top:8px"><button class="btn btn-ghost" style="flex:none;width:100%;margin-top:6px" onclick="prefillHolidays(${new Date().getFullYear()})">Charger les jours f\u00e9ri\u00e9s ${new Date().getFullYear()}</button></div>
+      <div class="sethint" style="margin-top:8px"><button class="btn btn-ghost" style="flex:none;width:100%;margin-top:6px" onclick="prefillHolidays(${new Date().getFullYear()})">Charger les jours f\u00e9ri\u00e9s ${new Date().getFullYear()}</button><button class="btn btn-ghost" style="flex:none;width:100%;margin-top:6px" onclick="prefillHolidays(${new Date().getFullYear()+1})">Charger les jours f\u00e9ri\u00e9s ${new Date().getFullYear()+1}</button></div>
       <div class="sync-section">
         <label style="display:block;margin-bottom:8px">SYNCHRONISATION</label>
         ${(()=>{
