@@ -157,7 +157,7 @@ function cycleStatus(i){
   const ns=next[cur]||"work";
   week[i].status=ns;
   if(ns!=="work"){delete week[i].arrival;delete week[i].lunch;delete week[i].actualDeparture;}
-  saveWeek();syncPush();render();
+  saveWeek();syncPush();_rendered=false;render();
 }
 function setField(i,k,v){
   if(!week[i])week[i]={};
@@ -170,15 +170,15 @@ function setField(i,k,v){
     if(!ae||ae.tagName!=='INPUT'||!document.getElementById('app').contains(ae)){render();}
   },150);
 }
-function nav(d){mondayOffset+=d;loadWeek();render();}
-function goToday(){mondayOffset=0;loadWeek();render();}
-function goToWeekKey(year,wk){const m=isoWeekMonday(year,wk);mondayOffset=Math.round((m-getMonday(0))/(7*86400000));loadWeek();render();window.scrollTo({top:0,behavior:"smooth"});}
+function nav(d){mondayOffset+=d;loadWeek();_rendered=false;render();}
+function goToday(){mondayOffset=0;loadWeek();_rendered=false;render();}
+function goToWeekKey(year,wk){const m=isoWeekMonday(year,wk);mondayOffset=Math.round((m-getMonday(0))/(7*86400000));loadWeek();_rendered=false;render();window.scrollTo({top:0,behavior:"smooth"});}
 function openHistory(){const h=document.getElementById("hist");if(h){h.open=true;h.scrollIntoView({behavior:"smooth",block:"center"});}}
-function clearWeek(){if(!confirm("Effacer toutes les saisies de cette semaine ?"))return;week={};saveWeek();syncPush();render();toast("Semaine effac\u00e9e");}
-function setTarget(v){const parsed=parseTarget(v);settings.weeklyTarget=parsed!=null?parsed:settings.weeklyTarget;saveSettings();syncPush();render();}
-function setDays(v){settings.days=Math.max(1,Math.min(7,Number(v)||5));saveSettings();syncPush();render();}
-function setLunch(v){settings.lunch=Math.max(0,Number(v)||0);saveSettings();syncPush();render();}
-function setArr(v){settings.arrival=v||"08:15";saveSettings();syncPush();render();}
+function clearWeek(){if(!confirm("Effacer toutes les saisies de cette semaine ?"))return;week={};saveWeek();syncPush();_rendered=false;render();toast("Semaine effac\u00e9e");}
+function setTarget(v){const parsed=parseTarget(v);settings.weeklyTarget=parsed!=null?parsed:settings.weeklyTarget;saveSettings();syncPush();_rendered=false;render();}
+function setDays(v){settings.days=Math.max(1,Math.min(7,Number(v)||5));saveSettings();syncPush();_rendered=false;render();}
+function setLunch(v){settings.lunch=Math.max(0,Number(v)||0);saveSettings();syncPush();_rendered=false;render();}
+function setArr(v){settings.arrival=v||"08:15";saveSettings();syncPush();_rendered=false;render();}
 function setIcsTitle(v){settings.icsTitle=v||DEFAULTS.icsTitle;saveSettings(false);syncPush();}
 function setIcsLocation(v){settings.icsLocation=v||"";saveSettings(false);syncPush();}
 function setIcsCal(v){settings.icsCalendar=v||"";saveSettings(false);syncPush();}
@@ -186,7 +186,7 @@ async function handleSyncConnect(){
   const input=document.getElementById("sync-token");
   if(!input||!input.value.trim()){toast("Token requis");return;}
   const ok=await syncConnect(input.value.trim());
-  if(ok){toast("Synchronisation activ\u00e9e");render();}
+  if(ok){toast("Synchronisation activ\u00e9e");_rendered=false;render();}
   else{toast("Token invalide");}
 }
 function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2200);}
@@ -207,7 +207,7 @@ function prefillHolidays(year){
     localStorage.setItem(key,JSON.stringify(wData));
     count++;
   }
-  invalidateAggCache();loadWeek();render();syncPush();
+  invalidateAggCache();loadWeek();_rendered=false;render();syncPush();
   toast(count+" f\u00e9ri\u00e9(s) ajout\u00e9(s) pour "+year);
 }
 
@@ -248,7 +248,7 @@ function importBackup(file){
       const o=JSON.parse(r.result);
       if(!validateBackup(o)){toast("Fichier de sauvegarde invalide ou corrompu");return;}
       Object.keys(o).forEach(k=>{if(k.startsWith("pointeuse:"))localStorage.setItem(k,o[k]);});
-      invalidateAggCache();loadSettings();loadWeek();render();syncPush();toast("Donn\u00e9es restaur\u00e9es");
+      invalidateAggCache();loadSettings();loadWeek();_rendered=false;render();syncPush();toast("Donn\u00e9es restaur\u00e9es");
     }catch(e){toast("Fichier invalide");}
   };
   r.readAsText(file);
@@ -257,6 +257,15 @@ function importBackup(file){
 /* ---------- render ---------- */
 function render(){
   const app=document.getElementById("app");
+  if(!_rendered){
+    _renderFull(app);
+    _rendered=true;
+  } else {
+    _renderUpdate(app);
+  }
+}
+
+function _renderFull(app){
   const{week:wn}=isoWeek(getMonday(mondayOffset));
   const ti=todayIndex(mondayOffset);
   const heroIdx=ti>=0?ti:0;
@@ -287,12 +296,12 @@ function render(){
     const isUnclosed=d.status==="work"&&d.aMin!=null&&!d.actual&&dd<today;
     const badges={leave:`<span class="day-badge leave">cong\u00e9</span>`,holiday:`<span class="day-badge holiday">f\u00e9ri\u00e9</span>`,sick:`<span class="day-badge sick">maladie</span>`};
     const badgeHTML=badges[d.status]||"";
-    rows+=`<div class="row${isToday?" today":""}${isOff?" off":""}">
+    rows+=`<div class="row${isToday?" today":""}${isOff?" off":""}" data-row="${i}">
       <div class="day" onclick="cycleStatus(${i})" tabindex="0" role="button" aria-label="Changer statut ${DAYNAMES[i]}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();cycleStatus(${i})}">${DAYNAMES[i].slice(0,3)}${isUnclosed?`<span class="unclosed-dot"></span>`:""}<small>${dd.getDate()}/${pad(dd.getMonth()+1)}</small>${badgeHTML}</div>
       <input type="time" value="${esc(d.arrival)}" aria-label="Arriv\u00e9e ${DAYNAMES[i]}" onblur="setField(${i},'arrival',this.value)">
       <div class="pause"><input type="number" min="0" max="180" value="${esc(d.lunch)}" aria-label="Pause ${DAYNAMES[i]}" onblur="setField(${i},'lunch',this.value)"></div>
-      <div class="prev ${d.predicted==null?'empty':''}">${d.predicted!=null?toHHMM(d.predicted):"\u2014"}</div>
-      <div class="realcell">
+      <div class="prev ${d.predicted==null?'empty':''}" data-prev="${i}">${d.predicted!=null?toHHMM(d.predicted):"\u2014"}</div>
+      <div class="realcell" data-realcell="${i}">
         <input type="time" value="${esc(d.actual)}" aria-label="D\u00e9part r\u00e9el ${DAYNAMES[i]}" onblur="setField(${i},'actualDeparture',this.value)">
         ${d.settled?`<div class="ddelta ${d.dailyDelta>=0?'pos':'neg'}">${fmtDelta(d.dailyDelta)}</div>`:``}
       </div>
@@ -323,7 +332,7 @@ function render(){
 
   app.innerHTML=`
   <div class="top">
-    <div class="brand"><b>Pointeuse</b><span>sem. ${wn}</span></div>
+    <div class="brand"><b>Pointeuse</b><span data-weeknum>sem. ${wn}</span></div>
     <div class="weeknav">
       <button onclick="nav(-1)" aria-label="Semaine pr\u00e9c\u00e9dente">\u2039</button>
       ${mondayOffset!==0?`<button class="today" onclick="goToday()" aria-label="Retour \u00e0 cette semaine">aujourd\u2019hui</button>`:`<span class="lbl">cette semaine</span>`}
@@ -333,7 +342,7 @@ function render(){
 
   <div class="balance" onclick="openHistory()" tabindex="0" role="button" aria-label="Voir l'historique \u2014 solde cumul\u00e9 ${fmtDelta(bal)}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openHistory()}">
     <div class="l">Solde cumul\u00e9<small>avance / retard, tous jours cl\u00f4tur\u00e9s</small></div>
-    <b class="${balCls}">${fmtDelta(bal)}</b>
+    <b data-bal class="${balCls}">${fmtDelta(bal)}</b>
   </div>
 
   ${(()=>{
@@ -347,14 +356,14 @@ function render(){
     <div class="eyebrow">${ti>=0?"Aujourd\u2019hui":"Aper\u00e7u \u2014 "+DAYNAMES[heroIdx]}</div>
     <div class="date">${dateStr}</div>
     <div class="leaverow">
-      <div><div class="lab">D\u00e9part pr\u00e9vu</div><div class="bigtime ${over?'over':''}">${heroLeave}</div></div>
+      <div><div class="lab">D\u00e9part pr\u00e9vu</div><div class="bigtime ${over?'over':''}" data-hero-leave>${heroLeave}</div></div>
       <div class="quick"><label>Arriv\u00e9e</label><input type="time" value="${esc(hd.arrival)}" aria-label="Arriv\u00e9e aujourd'hui" onchange="setField(${heroIdx},'arrival',this.value)"></div>
     </div>
     <div class="timeline">
-      <div class="bar" role="progressbar" aria-valuenow="${Math.round(fillPct)}" aria-valuemin="0" aria-valuemax="100"><div class="fill ${over?'over':''}" style="width:${fillPct}%"></div>${nowPct!=null?`<div class="now" style="left:${nowPct}%"></div>`:""}</div>
+      <div class="bar" role="progressbar" aria-valuenow="${Math.round(fillPct)}" aria-valuemin="0" aria-valuemax="100"><div class="fill ${over?'over':''}" data-fill style="width:${fillPct}%"></div><div class="now" data-now style="left:${nowPct!=null?nowPct:0}%;display:${nowPct!=null?'block':'none'}"></div></div>
       <div class="ticks">
         <span>${hd.aMin!=null?toHHMM(hd.aMin):"arriv\u00e9e"}</span>
-        <span>pause ${hd.lunch} min \u00b7 fait <b>${fmtDur(hd.worked)}</b></span>
+        <span data-hero-worked>pause ${hd.lunch} min \u00b7 fait <b>${fmtDur(hd.worked)}</b></span>
         <span>${heroLeave}</span>
       </div>
     </div>
@@ -367,11 +376,11 @@ function render(){
     <div class="sum">
       <div>
         <div class="lab">R\u00e9alis\u00e9 cette semaine</div>
-        <div class="val">${fmtDur(cw.realized)}${showProj?`<small>projet\u00e9 ${fmtDur(cw.projected)}</small>`:``}</div>
+        <div class="val" data-week-realized>${fmtDur(cw.realized)}${showProj?`<small>projet\u00e9 ${fmtDur(cw.projected)}</small>`:``}</div>
       </div>
       <div class="soldebox">
         <div class="lab">Solde semaine</div>
-        <div class="sval ${wSoldeCls}">${wSolde}</div>
+        <div class="sval ${wSoldeCls}" data-week-solde>${wSolde}</div>
       </div>
     </div>
   </div>
@@ -439,7 +448,84 @@ function render(){
   </details>`;
 }
 
-function handleSyncDisconnect(){if(!confirm("Déconnecter la synchronisation ?"))return;syncDisconnect();render();}
+function _renderUpdate(app){
+  const ti=todayIndex(mondayOffset);
+  const heroIdx=ti>=0?ti:0;
+  const hd=dayData(heroIdx);
+
+  /* --- hero section --- */
+  let fillPct=0,nowPct=null,over=false;
+  if(hd.aMin!=null&&hd.predicted!=null){
+    const span=hd.predicted-hd.aMin;
+    if(ti===heroIdx){
+      const now=new Date();const nowMin=now.getHours()*60+now.getMinutes();
+      nowPct=Math.max(0,Math.min(1,(nowMin-hd.aMin)/span))*100;
+      fillPct=nowPct;over=nowMin>hd.predicted;if(over)fillPct=100;
+    }else if(hd.actual){fillPct=100;}
+  }
+  const heroLeave=hd.predicted!=null?toHHMM(hd.predicted):"\u2013\u2013:\u2013\u2013";
+
+  const elHeroLeave=app.querySelector("[data-hero-leave]");
+  if(elHeroLeave){elHeroLeave.textContent=heroLeave;elHeroLeave.className="bigtime"+(over?" over":"");}
+
+  const elHeroWorked=app.querySelector("[data-hero-worked]");
+  if(elHeroWorked){elHeroWorked.innerHTML=`pause ${hd.lunch} min \u00b7 fait <b>${fmtDur(hd.worked)}</b>`;}
+
+  const elFill=app.querySelector("[data-fill]");
+  if(elFill){elFill.style.width=fillPct+"%";elFill.className="fill"+(over?" over":"");}
+
+  const elNow=app.querySelector("[data-now]");
+  if(elNow){
+    if(nowPct!=null){elNow.style.left=nowPct+"%";elNow.style.display="block";}
+    else{elNow.style.display="none";}
+  }
+
+  const elBar=app.querySelector(".bar[role=progressbar]");
+  if(elBar)elBar.setAttribute("aria-valuenow",String(Math.round(fillPct)));
+
+  /* --- balance --- */
+  const bal=cumulativeBalance();
+  const elBal=app.querySelector("[data-bal]");
+  if(elBal){elBal.textContent=fmtDelta(bal);elBal.className=bal>=0?"pos":"neg";}
+
+  /* --- day rows --- */
+  for(let i=0;i<settings.days;i++){
+    const d=dayData(i);
+
+    const elPrev=app.querySelector(`[data-prev="${i}"]`);
+    if(elPrev){
+      elPrev.textContent=d.predicted!=null?toHHMM(d.predicted):"\u2014";
+      elPrev.className="prev"+(d.predicted==null?" empty":"");
+    }
+
+    const elReal=app.querySelector(`[data-realcell="${i}"]`);
+    if(elReal){
+      const ddeltaEl=elReal.querySelector(".ddelta");
+      if(d.settled){
+        const cls="ddelta "+(d.dailyDelta>=0?"pos":"neg");
+        const txt=fmtDelta(d.dailyDelta);
+        if(ddeltaEl){ddeltaEl.className=cls;ddeltaEl.textContent=txt;}
+        else{const div=document.createElement("div");div.className=cls;div.textContent=txt;elReal.appendChild(div);}
+      }else{
+        if(ddeltaEl)ddeltaEl.remove();
+      }
+    }
+  }
+
+  /* --- week summary --- */
+  const cw=computeWeekObj(week,settings);
+  const showProj=cw.projected!==cw.realized;
+
+  const elRealized=app.querySelector("[data-week-realized]");
+  if(elRealized){elRealized.innerHTML=fmtDur(cw.realized)+(showProj?`<small>projet\u00e9 ${fmtDur(cw.projected)}</small>`:``); }
+
+  const wSolde=cw.settledCount>0?fmtDelta(cw.settledDelta):"\u2014";
+  const wSoldeCls=cw.settledDelta>=0?"pos":"neg";
+  const elSolde=app.querySelector("[data-week-solde]");
+  if(elSolde){elSolde.textContent=wSolde;elSolde.className="sval "+wSoldeCls;}
+}
+
+function handleSyncDisconnect(){if(!confirm("Déconnecter la synchronisation ?"))return;syncDisconnect();_rendered=false;render();}
 
 /* ---------- expose globals for inline handlers ---------- */
 Object.assign(window,{cycleStatus,setField,nav,goToday,goToWeekKey,openHistory,clearWeek,setTarget,setDays,setLunch,setArr,setIcsTitle,setIcsLocation,setIcsCal,handleSyncConnect,handleSyncDisconnect,prefillHolidays,exportICS,exportCSV,exportBackup,importBackup,applyUpdate,render});
@@ -470,6 +556,6 @@ loadSettings();loadWeek();
 setSyncToast(toast);
 syncPull().then(({changed,error})=>{
   if(error)toast(error);
-  if(changed){invalidateAggCache();loadSettings();loadWeek();}
+  if(changed){invalidateAggCache();loadSettings();loadWeek();_rendered=false;}
   render();
 });
