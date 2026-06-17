@@ -1,6 +1,8 @@
 import{STORE_SETTINGS,DEFAULTS,DAYNAMES,MONTHNAMES,esc,pad,toMin,toHHMM,fmtDur,fmtDelta,getMonday,isoWeek,isoWeekMonday,weekKey,dayOfYear,todayIndex,dailyTarget,computeWeekObj,easterMonday,frenchHolidays,parseTarget,validateBackup}from"./compute.js";
 import{syncConnect,syncDisconnect,syncStatus,syncPull,syncPush,setSyncToast}from"./sync.js";
 
+const CHEVRON_SVG='<svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 4l4 4-4 4"/></svg>';
+
 /* ---------- state ---------- */
 let settings={...DEFAULTS};
 let week={};
@@ -342,7 +344,7 @@ function _renderFull(app){
     </div>
   </div>
 
-  <div class="balance" data-action="openHistory" tabindex="0" role="button" aria-label="Voir l'historique \u2014 solde cumul\u00e9 ${fmtDelta(bal)}">
+  <div class="balance${bal<0?' neg-accent':''}" data-action="openHistory" tabindex="0" role="button" aria-label="Voir l'historique \u2014 solde cumul\u00e9 ${fmtDelta(bal)}">
     <div class="l">Solde cumul\u00e9<small>avance / retard, tous jours cl\u00f4tur\u00e9s</small></div>
     <b data-bal class="${balCls}">${fmtDelta(bal)}</b>
   </div>
@@ -362,7 +364,7 @@ function _renderFull(app){
       <div class="quick"><label>Arriv\u00e9e</label><input type="time" value="${esc(hd.arrival)}" aria-label="Arriv\u00e9e aujourd'hui" data-field="heroArrival" data-idx="${heroIdx}"></div>
     </div>
     <div class="timeline">
-      <div class="bar" role="progressbar" aria-valuenow="${Math.round(fillPct)}" aria-valuemin="0" aria-valuemax="100"><div class="fill ${over?'over':''}" data-fill style="width:${fillPct}%"></div><div class="now" data-now style="left:${nowPct!=null?nowPct:0}%;display:${nowPct!=null?'block':'none'}"></div></div>
+      <div class="bar" role="progressbar" aria-valuenow="${Math.round(fillPct)}" aria-valuemin="0" aria-valuemax="100"><div class="fill ${over?'over':''}${ti===heroIdx?' active':''}" data-fill style="width:${fillPct}%"></div><div class="now" data-now style="left:${nowPct!=null?nowPct:0}%;display:${nowPct!=null?'block':'none'}"></div></div>
       <div class="ticks">
         <span>${hd.aMin!=null?toHHMM(hd.aMin):"arriv\u00e9e"}</span>
         <span data-hero-worked>pause ${hd.lunch} min \u00b7 fait <b>${fmtDur(hd.worked)}</b></span>
@@ -397,12 +399,12 @@ function _renderFull(app){
   </div>
 
   <details class="panel" id="hist">
-    <summary>\uD83D\uDCC5 Historique par semaine</summary>
+    <summary>${CHEVRON_SVG} Historique par semaine</summary>
     ${histHTML}
   </details>
 
   <details class="panel">
-    <summary>\uD83D\uDCCA R\u00e9cap mensuel</summary>
+    <summary>${CHEVRON_SVG} R\u00e9cap mensuel</summary>
     ${(()=>{
       const mr=monthlyRecap();
       if(!mr.length)return`<div class="hempty">Aucune donn\u00e9e mensuelle.</div>`;
@@ -418,13 +420,13 @@ function _renderFull(app){
         html+=`<div class="mrow"><div class="mr-label">${MONTHNAMES[m.month]} ${m.year}<small>${detail}</small></div><div class="mr-solde ${dcls}">${m.settledCount?fmtDelta(m.delta):"\u2014"}</div></div>`;
       }
       html+=`</div>`;
-      html+=`<div style="padding:12px 18px;border-top:1px solid #232E3A"><button class="btn btn-ghost" style="flex:none;width:100%" data-action="exportCSV">\u2913 Exporter CSV (tous les jours)</button></div>`;
+      html+=`<div style="padding:12px 18px;border-top:1px solid var(--surface-border)"><button class="btn btn-ghost" style="flex:none;width:100%" data-action="exportCSV">\u2913 Exporter CSV (tous les jours)</button></div>`;
       return html;
     })()}
   </details>
 
   <details class="panel">
-    <summary>\u2699 R\u00e9glages</summary>
+    <summary>${CHEVRON_SVG} R\u00e9glages</summary>
     <div class="setgrid">
       <div class="f"><label>Objectif hebdo</label><input type="text" value="${fmtDur(settings.weeklyTarget)}" aria-label="Objectif hebdomadaire" data-field="weeklyTarget"></div>
       <div class="f"><label>Jours / semaine</label><input type="number" min="1" max="7" value="${settings.days}" aria-label="Jours par semaine" data-field="days"></div>
