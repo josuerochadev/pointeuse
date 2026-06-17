@@ -310,7 +310,7 @@ body {
 .bigtime {
   font-family: "Fraunces", serif;
   font-weight: 500;
-  font-size: 62px;
+  font-size: 58px;
   line-height: .92;
   letter-spacing: -.01em;
   font-variant-numeric: tabular-nums;
@@ -393,8 +393,8 @@ body {
 /* Now marker: dot, not line */
 .bar .now {
   position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  top: -3px;
+  transform: translateX(-50%);
   width: 8px;
   height: 8px;
   border-radius: 50%;
